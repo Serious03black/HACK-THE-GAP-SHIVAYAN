@@ -20,7 +20,6 @@ const RichTextEditor = () => {
       ['clean'], // Remove formatting
     ],
   };
-
   // Formats supported by the editor
   const formats = [
     'header', 'font', 'size',
