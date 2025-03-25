@@ -12,6 +12,7 @@ const Signup = () => {
     studentName: "",
     studentEmail: "",
     studentPassword: "",
+    confirmPassword: "", // Added for password matching
     studentPhone: "",
     photo: null,
   });
@@ -35,18 +36,15 @@ const Signup = () => {
         setIsModelLoading(true);
         await tf.setBackend('webgl');
         await tf.ready();
-        console.log("TensorFlow.js backend:", tf.getBackend());
-
         const model = SupportedModels.MediaPipeFaceDetector;
         const detectorConfig = {
           runtime: "tfjs",
           modelType: "short",
-          maxFaces: 10, // Allow detection of multiple faces
+          maxFaces: 10,
         };
         const faceDetector = await createDetector(model, detectorConfig);
         setDetector(faceDetector);
         toast.success("Face detection model loaded!");
-        console.log("Face detector initialized:", faceDetector);
       } catch (error) {
         console.error("Error loading face detection model:", error);
         toast.error("Failed to load face detection model.");
@@ -60,6 +58,8 @@ const Signup = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+    // Clear error for the field being edited
+    setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const startCamera = async () => {
@@ -76,9 +76,6 @@ const Signup = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          console.log("Camera stream loaded:", videoRef.current.videoWidth, videoRef.current.videoHeight);
-        };
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
@@ -99,7 +96,6 @@ const Signup = () => {
     context.drawImage(videoRef.current, 0, 0);
     const imageData = canvasRef.current.toDataURL("image/png");
 
-    console.log("Captured image data:", imageData.substring(0, 50));
     stopCamera();
     setIsDetectingFace(true);
 
@@ -139,15 +135,10 @@ const Signup = () => {
     try {
       const img = new Image();
       img.src = imageData;
-      await new Promise((resolve) => (img.onload = () => {
-        console.log("Image loaded:", img.width, img.height);
-        resolve();
-      }));
+      await new Promise((resolve) => (img.onload = resolve));
 
       const tensor = tf.browser.fromPixels(img);
-      console.log("Tensor shape:", tensor.shape);
       const detections = await detector.estimateFaces(tensor, { flipHorizontal: false });
-      console.log("Detected faces:", detections);
       tf.dispose(tensor);
 
       if (detections.length === 0) {
@@ -178,14 +169,56 @@ const Signup = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.studentName) newErrors.studentName = "Full Name is required";
-    if (!formData.studentEmail) newErrors.studentEmail = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(formData.studentEmail)) newErrors.studentEmail = "Email is invalid";
-    if (!formData.studentPassword) newErrors.studentPassword = "Password is required";
-    else if (formData.studentPassword.length < 6) newErrors.studentPassword = "Password must be at least 6 characters";
-    if (!formData.studentPhone) newErrors.studentPhone = "Phone number is required";
-    else if (!/^\d{10}$/.test(formData.studentPhone)) newErrors.studentPhone = "Invalid phone number (10 digits)";
-    if (!formData.photo) newErrors.photo = "A photo with a single face is required";
+
+    // Name validation
+    if (!formData.studentName.trim()) {
+      newErrors.studentName = "Full Name is required";
+    } else if (formData.studentName.length < 2) {
+      newErrors.studentName = "Name must be at least 2 characters";
+    }
+
+    // Email validation
+    if (!formData.studentEmail) {
+      newErrors.studentEmail = "Email is required";
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.studentEmail)) {
+        newErrors.studentEmail = "Email must contain '@' and a valid domain";
+      } else if (!/\.(com|edu|org|net)$/i.test(formData.studentEmail)) {
+        newErrors.studentEmail = "Email must end with .com, .edu, .org, or .net";
+      }
+    }
+
+    // Password validation
+    if (!formData.studentPassword) {
+      newErrors.studentPassword = "Password is required";
+    } else {
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      if (!passwordRegex.test(formData.studentPassword)) {
+        newErrors.studentPassword =
+          "Password must be 8+ characters, with at least 1 uppercase, 1 lowercase, 1 number, and 1 special character (@$!%*?&)";
+      }
+    }
+
+    // Confirm Password validation
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (formData.studentPassword !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+
+    // Phone validation
+    if (!formData.studentPhone) {
+      newErrors.studentPhone = "Phone number is required";
+    } else if (!/^\d{10}$/.test(formData.studentPhone)) {
+      newErrors.studentPhone = "Phone number must be exactly 10 digits";
+    }
+
+    // Photo validation
+    if (!formData.photo) {
+      newErrors.photo = "A photo with a single face is required";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -273,7 +306,6 @@ const Signup = () => {
                     name="studentName"
                     value={formData.studentName}
                     onChange={handleChange}
-                    required
                     className={`w-full pl-12 pr-4 py-3 bg-gray-50 text-gray-800 border-2 ${
                       errors.studentName ? "border-red-400" : "border-green-300"
                     } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-green-500 transition-all duration-300`}
@@ -297,11 +329,10 @@ const Signup = () => {
                     name="studentEmail"
                     value={formData.studentEmail}
                     onChange={handleChange}
-                    required
                     className={`w-full pl-12 pr-4 py-3 bg-gray-50 text-gray-800 border-2 ${
                       errors.studentEmail ? "border-red-400" : "border-green-300"
                     } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-green-500 transition-all duration-300`}
-                    placeholder="student@example.com"
+                    placeholder="student@gmail.com"
                   />
                   <i className="fa fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-green-500 text-lg"></i>
                 </div>
@@ -321,7 +352,6 @@ const Signup = () => {
                     name="studentPassword"
                     value={formData.studentPassword}
                     onChange={handleChange}
-                    required
                     className={`w-full pl-12 pr-4 py-3 bg-gray-50 text-gray-800 border-2 ${
                       errors.studentPassword ? "border-red-400" : "border-green-300"
                     } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-green-500 transition-all duration-300`}
@@ -331,6 +361,29 @@ const Signup = () => {
                 </div>
                 {errors.studentPassword && (
                   <p className="text-red-500 text-xs mt-2 font-medium">{errors.studentPassword}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className={`w-full pl-12 pr-4 py-3 bg-gray-50 text-gray-800 border-2 ${
+                      errors.confirmPassword ? "border-red-400" : "border-green-300"
+                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-green-500 transition-all duration-300`}
+                    placeholder="••••••••"
+                  />
+                  <i className="fa fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-green-500 text-lg"></i>
+                </div>
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-xs mt-2 font-medium">{errors.confirmPassword}</p>
                 )}
               </div>
 
@@ -345,7 +398,6 @@ const Signup = () => {
                     name="studentPhone"
                     value={formData.studentPhone}
                     onChange={handleChange}
-                    required
                     className={`w-full pl-12 pr-4 py-3 bg-gray-50 text-gray-800 border-2 ${
                       errors.studentPhone ? "border-red-400" : "border-green-300"
                     } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-green-500 transition-all duration-300`}

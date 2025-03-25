@@ -2,7 +2,7 @@ import './App.css'
 import StudentRouter from './routes/student/StudentRoute';
 import UniversityRouter from './routes/university/UniversityRoute';
 import { Route, Routes } from 'react-router-dom';
-
+import '@fortawesome/fontawesome-free/css/all.min.css';
 
 function App() {
 

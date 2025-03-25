@@ -458,15 +458,24 @@ const TestView = () => {
   };
 
 
-  const handleSubmitExam = async() => {
-    console.log("Submitting exam");
-    
-    const response = await axiosInstance.post(`/student/exam/submitExam/${id}`);
-
-    console.log("response => ", response);
-
+  const handleSubmitExam = async () => {
+    console.log("Submitting exam with answers:", answers);
+    try {
+      const response = await axiosInstance.post(`/student/exam/submitExam/${id}`, {
+        answers, // Send the answers array
+      });
+      console.log("Response:", response.data);
+      toast.success("Exam submitted successfully!");
+      setTestSubmitted(true); // Mark test as submitted
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach((track) => track.stop()); // Stop camera
+      }
+    } catch (error) {
+      console.error("Error submitting exam:", error);
+      toast.error(error?.response?.data?.message || "Failed to submit exam");
+    }
   };
-
+  
   if (testSubmitted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-200">
