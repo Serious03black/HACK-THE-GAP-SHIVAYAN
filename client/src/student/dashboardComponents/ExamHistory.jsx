@@ -24,10 +24,10 @@ const ExamHistory = ({ sidebarOpen, setSidebarOpen }) => {
     try {
       setLoading(true);
       toast.loading('Fetching your exam history...');
-      const response = await axiosInstance.get('/student/exam/getExamHistory');
-      const history = response?.data?.data?.history || [];
-      setExamHistory(history);
-      setFilteredHistory(history); // Initially show all exams
+      const response = await axiosInstance.get('/student/exam/attemptedExam');
+      const exams = response?.data?.data?.exams || [];
+      setExamHistory(exams);
+      setFilteredHistory(exams);
       toast.dismiss();
       toast.success('Exam history loaded successfully!');
     } catch (error) {
@@ -55,7 +55,7 @@ const ExamHistory = ({ sidebarOpen, setSidebarOpen }) => {
 
     if (filters.university) {
       filtered = filtered.filter((exam) =>
-        exam.university?.toLowerCase().includes(filters.university.toLowerCase())
+        exam.universityName?.toLowerCase().includes(filters.university.toLowerCase())
       );
     }
 
@@ -67,7 +67,9 @@ const ExamHistory = ({ sidebarOpen, setSidebarOpen }) => {
 
     if (filters.minScore) {
       filtered = filtered.filter((exam) =>
-        exam.score && exam.totalMarks && (exam.score / exam.totalMarks) * 100 >= parseInt(filters.minScore)
+        exam.totalMarks && exam.totalScore !== undefined
+          ? (exam.totalScore / exam.totalMarks) * 100 >= parseInt(filters.minScore)
+          : false
       );
     }
 
@@ -84,16 +86,20 @@ const ExamHistory = ({ sidebarOpen, setSidebarOpen }) => {
     navigate('/login');
   };
 
+  const handleExamClick = (examId) => {
+    navigate(`/student/exam/${examId}`);
+  };
+
   const sidebarItems = [
     { name: 'Dashboard', path: '/student/dashboard' },
-    { name: 'myExams', path: '/student/myExams' },
+    { name: 'My Exams', path: '/student/myExams' },
     { name: 'Profile', path: '/student/profile' },
     { name: 'Exam History', path: '/student/exam-history' },
     { name: 'Settings', path: '/student/settings' },
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="mt-10 flex min-h-screen bg-gray-100">
       <Toaster position="top-right" toastOptions={{ style: { background: '#333', color: '#fff' } }} />
 
       {/* Sidebar */}
@@ -200,16 +206,18 @@ const ExamHistory = ({ sidebarOpen, setSidebarOpen }) => {
               <p>Loading...</p>
             ) : filteredHistory.length > 0 ? (
               filteredHistory.map((exam) => (
-                <div key={exam._id} className="bg-gray-50 p-4 rounded-md mb-2">
-                  <h3 className="text-lg font-medium text-gray-800">{exam.examName}</h3>
+                <div
+                  key={exam.examId}
+                  onClick={() => handleExamClick(exam.examId)}
+                  className="bg-gray-50 p-4 rounded-md mb-2 hover:bg-gray-100 cursor-pointer transition-colors"
+                >
+                  <h3 className="text-lg font-medium text-gray-800">{exam.examName || 'Untitled Exam'}</h3>
                   <p className="text-gray-600">
                     Completed: {exam.completedDate ? new Date(exam.completedDate).toLocaleString() : 'N/A'} 
-                    | Score: {exam.score || 'N/A'}/{exam.totalMarks || 'N/A'}
+                    | Score: {exam.totalScore || 'N/A'}/{exam.totalMarks || 'N/A'}
                   </p>
                   <p className="text-gray-600">Status: {exam.status || 'Completed'}</p>
-                  {exam.university && (
-                    <p className="text-gray-600">University: {exam.university}</p>
-                  )}
+                  <p className="text-gray-600">University: {exam.universityName || 'N/A'}</p>
                 </div>
               ))
             ) : (

@@ -596,7 +596,8 @@ const getAiDescription = asyncHandler(async (req, res) => {
             }
         });
 
-    } catch(error) {
+    } 
+    catch(error) {
         throw new ApiError(500, error.message || "Error in getting AI Suggestions");
     }
 

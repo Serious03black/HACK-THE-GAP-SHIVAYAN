@@ -23,7 +23,7 @@ const navigate =  useNavigate();
   }, []);
 
   return (  
-    <div className="bg-white shadow-lg  rounded-xl p-8 ">
+    <div className="bg-white shadow-lg mt-10 rounded-xl p-8 ">
         <h2 className="text-3xl font-bold text-gray-800 mb-4">My Exams</h2>
       {isLoading ? (
         <p>Loading...</p>

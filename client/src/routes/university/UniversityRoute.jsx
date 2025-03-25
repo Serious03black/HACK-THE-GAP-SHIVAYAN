@@ -13,7 +13,8 @@ import UniversityDashboard from './../../university/UniversityDashboard';
 import UniversityProtection from './../../layouts/UniversityProtection';
 import ShowAllStudents from './../../university/ShowAllStudents'; 
 import UniversityProfile from '../../pages/university/UniversityProfile';
-import SendExamInfo from './../../university/SendExamInfo';   // // This Component is to view the info about the exams that the student has taken
+import ShowExamInfo from '../../university/ShowExamInfo';   // // This Component is to view the info about the exams that the student has taken
+import ShowExamResult from '../../university/ShowExamResult';
 
 
 function UniversityRouter() {
@@ -43,7 +44,8 @@ function UniversityRouter() {
 
             <Route path="/dashboard" element={<UniversityDashboard />} />
             <Route path="/students" element={<ShowAllStudents />} />
-            <Route path="/students/:studentId/exam-info" element={<SendExamInfo />} />
+            <Route path="/students/:studentId/exam-info" element={<ShowExamInfo />} />
+            <Route path="/students/:studentId/:examId/result" element={<ShowExamResult />} />
             <Route path="/profile" element={<UniversityProfile />} />
 
 

@@ -1,68 +1,156 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { createEditor } from 'slate';
-import { Slate, Editable, withReact } from 'slate-react';
-import { withHistory } from 'slate-history';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from './../../services/axiosInstance';
+import * as tf from "@tensorflow/tfjs";
+import { createDetector, SupportedModels } from "@tensorflow-models/face-detection";
+import RichTextEditor from './RichTextEditor';
 
 const TestView = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [warnings, setWarnings] = useState({
-    fullscreen: 0,
-    tabSwitch: 0,
-    face: 0,
-    eyes: 0,
-  });
+  const [warningCount, setWarningCount] = useState(0);
   const [testSubmitted, setTestSubmitted] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
-  const [eyesDetected, setEyesDetected] = useState(false);
-  const [eyesLookingAway, setEyesLookingAway] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState([]); // Array of answer objects
+  const [answers, setAnswers] = useState([]);
+  const [unsavedAnswers, setUnsavedAnswers] = useState({});
   const [examDetails, setExamDetails] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [answerStartTimes, setAnswerStartTimes] = useState({});
+  const [detector, setDetector] = useState(null);
+  const [isModelLoading, setIsModelLoading] = useState(true);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const examId = useParams().id;
+  const navigate = useNavigate();
 
-  const editor = useMemo(() => withHistory(withReact(createEditor())), []);
-  const { id } = useParams();
+  // Cloudinary photo URL (replace with your actual URL)
+  const referencePhotoUrl = 'https://res.cloudinary.com/your-cloud-name/image/upload/v1234567890/reference-photo.jpg';
+
+  useEffect(() => {
+    const loadModel = async () => {
+      try {
+        setIsModelLoading(true);
+        await tf.setBackend('webgl');
+        await tf.ready();
+        const model = SupportedModels.MediaPipeFaceDetector;
+        const detectorConfig = { runtime: "tfjs", modelType: "short", maxFaces: 10 };
+        const faceDetector = await createDetector(model, detectorConfig);
+        setDetector(faceDetector);
+        toast.success("Face detection model loaded!");
+      } catch (error) {
+        console.error("Error loading face detection model:", error);
+        toast.error("Failed to load face detection model.");
+      } finally {
+        setIsModelLoading(false);
+      }
+    };
+    loadModel();
+  }, []);
+
+  useEffect(() => {
+    const disableBrowserEvents = () => {
+      const handleBeforeUnload = (e) => {
+        if (!testSubmitted) {
+          e.preventDefault();
+          e.returnValue = "Are you sure you want to leave? Your test will be submitted.";
+          if (warningCount < 3) {
+            setWarningCount(prev => prev + 1);
+            toast.warn(`Warning ${warningCount + 1} of 3: Do not attempt to reload or close`);
+          } else {
+            setTestSubmitted(true);
+            toast.error("Test submitted: Too many violations (reload/close)");
+            stopVideo();
+            submitAndRedirect();
+          }
+        }
+      };
+
+      const handleVisibilityChange = () => {
+        if (document.hidden && !testSubmitted) {
+          if (warningCount < 3) {
+            setWarningCount(prev => prev + 1);
+            toast.warn(`Warning ${warningCount + 1} of 3: Do not switch tabs`);
+            document.documentElement.requestFullscreen();
+          } else {
+            setTestSubmitted(true);
+            toast.error("Test submitted: Too many violations (tab switch)");
+            stopVideo();
+            submitAndRedirect();
+          }
+        }
+      };
+
+      const handleContextMenu = (e) => {
+        e.preventDefault();
+        toast.warn("Right-click is disabled during the test.");
+      };
+
+      const handleKeyDown = (e) => {
+        if (!testSubmitted) {
+          const blockedKeys = [
+            'Escape', 'F11', 'F5',
+            'Ctrl+r', 'Ctrl+R', 'Ctrl+t', 'Ctrl+T',
+            'Ctrl+w', 'Ctrl+W', 'Ctrl+n', 'Ctrl+N',
+            'Alt+F4', 'Alt+Tab'
+          ];
+          const keyCombo = `${e.ctrlKey ? 'Ctrl+' : ''}${e.altKey ? 'Alt+' : ''}${e.key}`;
+          if (blockedKeys.includes(keyCombo) || blockedKeys.includes(e.key)) {
+            e.preventDefault();
+            if (warningCount < 3) {
+              setWarningCount(prev => prev + 1);
+              toast.warn(`Warning ${warningCount + 1} of 3: Keyboard shortcut (${keyCombo || e.key}) is disabled`);
+            } else {
+              setTestSubmitted(true);
+              toast.error(`Test submitted: Too many violations (keyboard shortcut: ${keyCombo || e.key})`);
+              stopVideo();
+              submitAndRedirect();
+            }
+          }
+        }
+      };
+
+      const handleFullScreenChange = () => {
+        if (!document.fullscreenElement && isFullScreen && !testSubmitted) {
+          if (warningCount < 3) {
+            setWarningCount(prev => prev + 1);
+            toast.warn(`Warning ${warningCount + 1} of 3: Stay in full screen mode`);
+            document.documentElement.requestFullscreen();
+          } else {
+            setTestSubmitted(true);
+            toast.error("Test submitted: Too many violations (exited fullscreen)");
+            stopVideo();
+            submitAndRedirect();
+          }
+        }
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      document.addEventListener('contextmenu', handleContextMenu);
+      document.addEventListener('keydown', handleKeyDown);
+      document.addEventListener('fullscreenchange', handleFullScreenChange);
+
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        document.removeEventListener('contextmenu', handleContextMenu);
+        document.removeEventListener('keydown', handleKeyDown);
+        document.removeEventListener('fullscreenchange', handleFullScreenChange);
+      };
+    };
+
+    const cleanup = disableBrowserEvents();
+    return () => cleanup && cleanup();
+  }, [isFullScreen, warningCount, testSubmitted]);
 
   const fetchQuestions = async () => {
     try {
-      const response = await axiosInstance.get(`/student/exam/getExamDetails/${id}`);
+      const response = await axiosInstance.get(`/student/exam/getExamDetails/${examId}`);
       if (response.data.statusCode === 200) {
         let exam = response.data.data.exam[0];
-        exam.questions = [
-          ...exam.questions,
-          {
-            _id: "67e1b18a85d997b8b6ce8f75",
-            questionType: "Essay",
-            questionTitle: "Describe your favorite algorithm",
-            questionDescription: "Write a 200-word essay.",
-            questionMarks: 5,
-            questionLevel: "Medium",
-          },
-          {
-            _id: "67e1b18a85d997b8b6ce8f76",
-            questionType: "Coding",
-            questionTitle: "Reverse a string",
-            questionDescription: "Write a function in Python.",
-            questionMarks: 10,
-            questionLevel: "Hard",
-          },
-          {
-            _id: "67e1b18a85d997b8b6ce8f77",
-            questionType: "Assignment",
-            questionTitle: "Upload your project",
-            questionDescription: "Submit a PDF file.",
-            questionMarks: 15,
-            questionLevel: "Medium",
-          },
-        ];
+        exam.questions = [...exam.questions];
         setExamDetails(exam);
         setTimeLeft(exam.examDuration * 60);
       }
@@ -73,36 +161,11 @@ const TestView = () => {
   };
 
   useEffect(() => {
-    const loadFaceApiAndStart = async () => {
-      try {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js';
-        script.onload = async () => {
-          await loadModels();
-          startVideo();
-        };
-        script.onerror = () => toast.error('Failed to load face-api.js');
-        document.body.appendChild(script);
-      } catch (error) {
-        console.error('Error loading face-api.js:', error);
-        toast.error('Error initializing face detection');
-      }
-    };
-
     fetchQuestions();
-    loadFaceApiAndStart();
-  }, []);
-
-  const loadModels = async () => {
-    try {
-      await window.faceapi.nets.tinyFaceDetector.loadFromUri('/models');
-      await window.faceapi.nets.faceLandmark68Net.loadFromUri('/models');
-      console.log('Face detection models loaded successfully');
-    } catch (error) {
-      console.error('Error loading models:', error);
-      toast.error('Failed to load face detection models');
+    if (!isModelLoading && detector) {
+      startVideo();
     }
-  };
+  }, [isModelLoading, detector]);
 
   useEffect(() => {
     if (timeLeft === null || testSubmitted) return;
@@ -110,9 +173,8 @@ const TestView = () => {
     if (timeLeft <= 0) {
       setTestSubmitted(true);
       toast.error("Time's up! Test submitted automatically.");
-      if (videoRef.current?.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-      }
+      stopVideo();
+      submitAndRedirect();
       return;
     }
 
@@ -130,13 +192,17 @@ const TestView = () => {
   };
 
   const startVideo = async () => {
+    if (isModelLoading || !detector) {
+      toast.error("Face detection model not ready.");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => {
-          console.log('Video stream started');
-          detectFaceAndEyes();
+          detectFace(); // Start real-time detection
+          startPeriodicPhotoCheck(); // Start periodic photo check
         };
       }
       if (!document.fullscreenElement) {
@@ -149,124 +215,200 @@ const TestView = () => {
     }
   };
 
-  const detectFaceAndEyes = async () => {
-    if (!videoRef.current || testSubmitted || !window.faceapi) return;
-
-    try {
-      const detection = await window.faceapi.detectSingleFace(
-        videoRef.current,
-        new window.faceapi.TinyFaceDetectorOptions()
-      ).withFaceLandmarks();
-
-      if (!detection) {
-        setFaceDetected(false);
-        if (warnings.face < 3) {
-          setWarnings(prev => ({ ...prev, face: prev.face + 1 }));
-          toast.warn(`Warning ${warnings.face + 1} of 3: Face not detected`);
-        } else {
-          setTestSubmitted(true);
-          toast.error("Test submitted: Face not detected after 3 warnings");
-          if (videoRef.current?.srcObject) {
-            videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-          }
-        }
-      } else {
-        setFaceDetected(true);
-        setWarnings(prev => ({ ...prev, face: 0 }));
-
-        const landmarks = detection.landmarks;
-        const leftEye = landmarks.getLeftEye();
-        const rightEye = landmarks.getRightEye();
-        const eyesPresent = leftEye.length > 0 && rightEye.length > 0;
-        setEyesDetected(eyesPresent);
-
-        if (eyesPresent) {
-          const videoWidth = videoRef.current.videoWidth;
-          const eyeCenterX = (leftEye[0].x + rightEye[3].x) / 2;
-          const isLookingAway = eyeCenterX < videoWidth * 0.3 || eyeCenterX > videoWidth * 0.7;
-
-          if (isLookingAway) {
-            setEyesLookingAway(true);
-            if (warnings.eyes < 3) {
-              setWarnings(prev => ({ ...prev, eyes: prev.eyes + 1 }));
-              toast.warn(`Warning ${warnings.eyes + 1} of 3: Eyes looking away from screen`);
-            }
-          } else {
-            setEyesLookingAway(false);
-            setWarnings(prev => ({ ...prev, eyes: 0 }));
-          }
-        } else if (warnings.eyes < 3) {
-          setWarnings(prev => ({ ...prev, eyes: prev.eyes + 1 }));
-          toast.warn(`Warning ${warnings.eyes + 1} of 3: Eyes not detected`);
-        }
-      }
-
-      if (!testSubmitted) {
-        setTimeout(detectFaceAndEyes, 500);
-      }
-    } catch (error) {
-      console.error('Error in face/eye detection:', error);
-      toast.error('Face/eye detection failed');
+  const stopVideo = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
   };
 
-  useEffect(() => {
-    const handleFullScreenChange = () => {
-      if (!document.fullscreenElement && isFullScreen && !testSubmitted) {
-        const confirmExit = window.confirm(
-          `Are you sure you want to exit fullscreen mode?\n- "Yes" will exit and submit the test after warnings.\n- "No" will keep you in fullscreen mode.`
-        );
+  const submitAndRedirect = async () => {
+    try {
+      await axiosInstance.post(`/student/exam/submitExam/${examId}`);
+      toast.success("Exam submitted! Redirecting in 3 seconds...");
+    } catch (error) {
+      console.error('Error submitting exam:', error);
+      toast.error("Exam submission failed, but redirecting anyway...");
+    } finally {
+      setTimeout(() => navigate('/student/myExams'), 3000);
+    }
+  };
 
-        if (confirmExit) {
-          if (warnings.fullscreen < 3) {
-            setWarnings(prev => ({ ...prev, fullscreen: prev.fullscreen + 1 }));
-            toast.warn(`Warning ${warnings.fullscreen + 1} of 3: Stay in full screen mode`);
-            setTimeout(() => document.documentElement.requestFullscreen(), 100);
+  const detectFace = async () => {
+    if (!videoRef.current || testSubmitted || !detector) return;
+
+    try {
+      const video = videoRef.current;
+      await new Promise((resolve) => {
+        if (video.readyState >= 2) resolve();
+        else video.onloadeddata = resolve;
+      });
+
+      const tensor = tf.browser.fromPixels(video);
+      const detections = await detector.estimateFaces(tensor, { flipHorizontal: false });
+      tf.dispose(tensor);
+
+      if (detections.length === 0) {
+        setFaceDetected(false);
+        if (warningCount < 3) {
+          setWarningCount(prev => prev + 1);
+          toast.warn(`Warning ${warningCount + 1} of 3: No face detected`);
+        } else {
+          setTestSubmitted(true);
+          toast.error("Test submitted: No face detected");
+          stopVideo();
+          submitAndRedirect();
+        }
+      } else if (detections.length > 1) {
+        setFaceDetected(false);
+        if (warningCount < 3) {
+          setWarningCount(prev => prev + 1);
+          toast.warn(`Warning ${warningCount + 1} of 3: Multiple faces detected (${detections.length})`);
+        } else {
+          setTestSubmitted(true);
+          toast.error(`Test submitted: Multiple faces detected (${detections.length})`);
+          stopVideo();
+          submitAndRedirect();
+        }
+      } else {
+        setFaceDetected(true);
+      }
+
+      if (!testSubmitted) {
+        requestAnimationFrame(detectFace);
+      }
+    } catch (error) {
+      console.error("Face detection error:", error);
+      toast.error("Failed to detect faces.");
+    }
+  };
+
+  const startPeriodicPhotoCheck = () => {
+    if (testSubmitted || !detector) return;
+
+    const checkPhoto = async () => {
+      try {
+        // Capture video frame
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const videoTensor = tf.browser.fromPixels(canvas);
+
+        // Fetch and process Cloudinary photo
+        const img = new Image();
+        img.crossOrigin = "Anonymous"; // Required for CORS
+        img.src = referencePhotoUrl;
+        await new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = () => {
+            console.error("Failed to load Cloudinary photo");
+            resolve(); // Continue even if image fails to load
+          };
+        });
+        const photoTensor = tf.browser.fromPixels(img);
+
+        // Detect faces in both
+        const videoDetections = await detector.estimateFaces(videoTensor, { flipHorizontal: false });
+        const photoDetections = await detector.estimateFaces(photoTensor, { flipHorizontal: false });
+
+        // Clean up tensors
+        tf.dispose([videoTensor, photoTensor]);
+
+        // Basic comparison: Check number of faces
+        if (videoDetections.length !== photoDetections.length) {
+          if (warningCount < 3) {
+            setWarningCount(prev => prev + 1);
+            toast.warn(`Warning ${warningCount + 1} of 3: Face count mismatch (Video: ${videoDetections.length}, Photo: ${photoDetections.length})`);
           } else {
             setTestSubmitted(true);
-            toast.error("Test submitted: Exited full screen after 3 warnings");
-            if (videoRef.current?.srcObject) {
-              videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+            toast.error("Test submitted: Face count mismatch with reference photo");
+            stopVideo();
+            submitAndRedirect();
+          }
+        } else if (videoDetections.length === 1 && photoDetections.length === 1) {
+          // Optional: Compare bounding box similarity (basic check)
+          const videoBox = videoDetections[0].box;
+          const photoBox = photoDetections[0].box;
+          const boxDiff = Math.abs(videoBox.xMin - photoBox.xMin) + Math.abs(videoBox.yMin - photoBox.yMin);
+          if (boxDiff > 100) { // Arbitrary threshold, adjust as needed
+            if (warningCount < 3) {
+              setWarningCount(prev => prev + 1);
+              toast.warn(`Warning ${warningCount + 1} of 3: Face position mismatch with reference photo`);
+            } else {
+              setTestSubmitted(true);
+              toast.error("Test submitted: Face position mismatch with reference photo");
+              stopVideo();
+              submitAndRedirect();
             }
           }
-        } else {
-          setTimeout(() => document.documentElement.requestFullscreen(), 100);
         }
+      } catch (error) {
+        console.error("Error during periodic photo check:", error);
+        toast.error("Failed to compare video with reference photo");
       }
     };
 
-    const handleVisibilityChange = () => {
-      if (document.hidden && !testSubmitted) {
-        const confirmTabSwitch = window.confirm(
-          `Are you sure you want to switch tabs?\n- "Yes" will count as a warning and may submit the test after 3 attempts.\n- "No" will keep you in the test.`
-        );
+    // Run every 5 seconds
+    const intervalId = setInterval(checkPhoto, 5000);
+    return () => clearInterval(intervalId); // Cleanup on unmount or test submission
+  };
 
-        if (confirmTabSwitch) {
-          if (warnings.tabSwitch < 3) {
-            setWarnings(prev => ({ ...prev, tabSwitch: prev.tabSwitch + 1 }));
-            toast.warn(`Warning ${warnings.tabSwitch + 1} of 3: Do not switch tabs`);
-          } else {
-            setTestSubmitted(true);
-            toast.error("Test submitted: Tab switched after 3 warnings");
-            if (videoRef.current?.srcObject) {
-              videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-            }
-          }
-        } else {
-          toast.info("Please stay on the test tab to continue.");
-        }
+  const handleAnswerChange = (questionIndex, value) => {
+    setUnsavedAnswers(prev => ({
+      ...prev,
+      [questionIndex]: value,
+    }));
+  };
+
+  const submitQuestionAnswer = async (questionIndex) => {
+    const question = examDetails.questions[questionIndex];
+    const value = unsavedAnswers[questionIndex] || '';
+    const startTime = answerStartTimes[questionIndex] || Date.now();
+    const answerDuration = Math.floor((Date.now() - startTime) / 1000);
+
+    const answerObj = {
+      examId: examDetails._id,
+      questionId: question._id,
+      answerText: value,
+      answerDuration,
+      answerMarks: question.questionMarks,
+      isAnswered: true,
+      answerTime: new Date().toISOString(),
+    };
+
+    setAnswers(prev => {
+      const existingIndex = prev.findIndex(a => a.questionId === question._id);
+      if (existingIndex >= 0) {
+        const newAnswers = [...prev];
+        newAnswers[existingIndex] = answerObj;
+        return newAnswers;
       }
-    };
+      return [...prev, answerObj];
+    });
 
-    document.addEventListener('fullscreenchange', handleFullScreenChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullScreenChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isFullScreen, warnings, testSubmitted]);
+    try {
+      if (question.questionType.toLowerCase() === 'essay') {
+        await axiosInstance.post('/student/exam/submitAnswer', answerObj);
+        toast.success('Essay answer submitted successfully');
+      } else if (question.questionType.toLowerCase() === 'coding' || question.questionType.toLowerCase() === 'oa') {
+        await axiosInstance.post('/student/exam/submitAnswer', answerObj);
+        toast.success('Coding answer submitted successfully');
+      }
+      setUnsavedAnswers(prev => {
+        const newUnsaved = { ...prev };
+        delete newUnsaved[questionIndex];
+        return newUnsaved;
+      });
+    } catch (error) {
+      console.error(`Error submitting ${question.questionType} answer:`, error);
+      toast.error(`Failed to submit ${question.questionType} answer`);
+    }
+  };
 
-  const handleAnswerChange = async (questionIndex, value) => {
+  const handleImmediateAnswerChange = async (questionIndex, value) => {
     const question = examDetails.questions[questionIndex];
     const startTime = answerStartTimes[questionIndex] || Date.now();
     const answerDuration = Math.floor((Date.now() - startTime) / 1000);
@@ -274,14 +416,12 @@ const TestView = () => {
     const answerObj = {
       examId: examDetails._id,
       questionId: question._id,
-      answerText: typeof value === 'object' && !(value instanceof File) ? JSON.stringify(value) : value,
+      answerText: value,
       answerDuration,
       answerMarks: question.questionMarks,
       isAnswered: true,
-      answerTime: new Date().toISOString()
+      answerTime: new Date().toISOString(),
     };
-
-
 
     setAnswers(prev => {
       const existingIndex = prev.findIndex(a => a.questionId === question._id);
@@ -295,19 +435,9 @@ const TestView = () => {
 
     try {
       if (question.questionType.toLowerCase() === 'mcq') {
-        const response = await axiosInstance.post('/student/exam/submitMCQAnswer/' + examId, answerObj);
-
-        console.log("response :",response);
-
-
+        await axiosInstance.post('/student/exam/submitMCQAnswer/' + examId, answerObj);
         toast.success('MCQ answer submitted successfully');
-      } else if (question.questionType.toLowerCase() === 'essay') {
-        const response = await axiosInstance.post('/student/exam/submitAnswer', answerObj);
-        toast.success('Essay answer submitted successfully');
-      } else if (question.questionType.toLowerCase() === 'coding') {
-        const response = await axiosInstance.post('/student/exam/submitAnswer', answerObj);
-        toast.success('Coding answer submitted successfully');
-      } else if (question.questionType.toLowerCase() === 'assignment') {
+      } else if (question.questionType.toLowerCase() === 'assignment' || question.questionType.toLowerCase() === 'assignment_oa') {
         const formData = new FormData();
         for (const [key, val] of Object.entries(answerObj)) {
           formData.append(key, val);
@@ -315,10 +445,13 @@ const TestView = () => {
         if (value instanceof File) {
           formData.append('file', value);
         }
-        const response = await axiosInstance.post('/student/exam/submitAnswer', formData, {
+        await axiosInstance.post('/student/exam/submitAnswer', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         toast.success('Assignment submitted successfully');
+      } else if (question.questionType.toLowerCase() === 'short_answer') {
+        await axiosInstance.post('/student/exam/submitAnswer', answerObj);
+        toast.success('Short answer submitted successfully');
       }
     } catch (error) {
       console.error(`Error submitting ${question.questionType} answer:`, error);
@@ -330,7 +463,6 @@ const TestView = () => {
     if (examDetails && currentQuestion < examDetails.questions.length - 1) {
       setAnswerStartTimes(prev => ({ ...prev, [currentQuestion]: Date.now() }));
       setCurrentQuestion(prev => prev + 1);
-      editor.history = { undos: [], redos: [] };
     }
   };
 
@@ -338,7 +470,6 @@ const TestView = () => {
     if (currentQuestion > 0) {
       setAnswerStartTimes(prev => ({ ...prev, [currentQuestion]: Date.now() }));
       setCurrentQuestion(prev => prev - 1);
-      editor.history = { undos: [], redos: [] };
     }
   };
 
@@ -356,13 +487,17 @@ const TestView = () => {
       case 'mcq': return 'bg-blue-700';
       case 'essay': return 'bg-yellow-700';
       case 'coding': return 'bg-purple-700';
+      case 'oa': return 'bg-purple-600';
       case 'assignment': return 'bg-orange-700';
+      case 'assignment_oa': return 'bg-orange-600';
+      case 'short_answer': return 'bg-teal-700';
       default: return 'bg-gray-700';
     }
   };
 
   const renderQuestion = (question, index) => {
     const answer = getAnswerForQuestion(question._id);
+    const unsavedAnswer = unsavedAnswers[index] || '';
     const answered = isQuestionAnswered(question._id);
 
     switch (question.questionType.toLowerCase()) {
@@ -378,7 +513,7 @@ const TestView = () => {
                   name={`question-${index}`}
                   value={option}
                   checked={answer?.answerText === option}
-                  onChange={() => handleAnswerChange(index, option)}
+                  onChange={() => handleImmediateAnswerChange(index, option)}
                   className="mr-2"
                 />
                 {option}
@@ -387,51 +522,72 @@ const TestView = () => {
           </div>
         );
       case 'essay':
-        const initialValue = answer?.answerText 
-          ? JSON.parse(answer.answerText) 
-          : [{ type: 'paragraph', children: [{ text: '' }] }];
         return (
           <div className={`p-4 rounded-lg shadow ${answered ? 'bg-green-100' : 'bg-white'}`}>
             <p className="text-gray-800 text-lg mb-2">{question.questionTitle}</p>
             <p className="text-gray-600 mb-2">{question.questionDescription}</p>
-            <Slate 
-              editor={editor} 
-              initialValue={initialValue} 
+            <RichTextEditor
+              content={answered ? answer?.answerText : unsavedAnswer}
               onChange={(value) => handleAnswerChange(index, value)}
+              placeholder="Write your essay here..."
+            />
+            <button
+              onClick={() => submitQuestionAnswer(index)}
+              className="mt-4 bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700"
+              disabled={!unsavedAnswer && !answered}
             >
-              <Editable
-                className="border rounded p-2 min-h-[200px] bg-gray-50 text-gray-800"
-                placeholder="Write your essay here..."
-              />
-            </Slate>
+              Submit Question
+            </button>
           </div>
         );
       case 'coding':
+      case 'oa':
         return (
           <div className={`p-4 rounded-lg shadow ${answered ? 'bg-green-100' : 'bg-white'}`}>
             <p className="text-gray-800 text-lg mb-2">{question.questionTitle}</p>
             <p className="text-gray-600 mb-2">{question.questionDescription}</p>
             <textarea
-              value={answer?.answerText || ''}
+              value={answered ? answer?.answerText : unsavedAnswer}
               onChange={(e) => handleAnswerChange(index, e.target.value)}
               className="w-full h-40 p-2 border rounded bg-gray-50 text-gray-800"
               placeholder="Write your code here..."
             />
+            <button
+              onClick={() => submitQuestionAnswer(index)}
+              className="mt-4 bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700"
+              disabled={!unsavedAnswer && !answered}
+            >
+              Submit Question
+            </button>
           </div>
         );
       case 'assignment':
+      case 'assignment_oa':
         return (
           <div className={`p-4 rounded-lg shadow ${answered ? 'bg-green-100' : 'bg-white'}`}>
             <p className="text-gray-800 text-lg mb-2">{question.questionTitle}</p>
             <p className="text-gray-600 mb-2">{question.questionDescription}</p>
             <input
               type="file"
-              onChange={(e) => handleAnswerChange(index, e.target.files[0])}
+              onChange={(e) => handleImmediateAnswerChange(index, e.target.files[0])}
               className="mb-2 text-gray-800"
             />
             {answer?.answerText instanceof File && (
               <p className="text-green-600">Uploaded: {answer.answerText.name}</p>
             )}
+          </div>
+        );
+      case 'short_answer':
+        return (
+          <div className={`p-4 rounded-lg shadow ${answered ? 'bg-green-100' : 'bg-white'}`}>
+            <p className="text-gray-800 text-lg mb-2">{question.questionTitle}</p>
+            <p className="text-gray-600 mb-2">{question.questionDescription}</p>
+            <RichTextEditor
+              content={answer?.answerText || ''}
+              onChange={(value) => handleImmediateAnswerChange(index, value)}
+              placeholder="Type your short answer here..."
+              limited={true}
+            />
           </div>
         );
       default:
@@ -446,33 +602,32 @@ const TestView = () => {
   };
 
   const groupQuestionsByType = () => {
-    const groups = { mcq: [], essay: [], coding: [], assignment: [] };
+    const groups = { mcq: [], essay: [], coding: [], oa: [], assignment: [], assignment_oa: [], short_answer: [] };
     examDetails.questions.forEach((q, index) => {
       const type = q.questionType.toLowerCase();
       if (type === 'mcq') groups.mcq.push({ ...q, index });
       else if (type === 'essay') groups.essay.push({ ...q, index });
       else if (type === 'coding') groups.coding.push({ ...q, index });
+      else if (type === 'oa') groups.oa.push({ ...q, index });
       else if (type === 'assignment') groups.assignment.push({ ...q, index });
+      else if (type === 'assignment_oa') groups.assignment_oa.push({ ...q, index });
+      else if (type === 'short_answer') groups.short_answer.push({ ...q, index });
     });
     return groups;
   };
 
-
   const handleSubmitExam = async () => {
-    console.log("Submitting exam with answers:", answers);
     try {
-      const response = await axiosInstance.post(`/student/exam/submitExam/${id}`, {
-        answers, // Send the answers array
-      });
-      console.log("Response:", response.data);
-      toast.success("Exam submitted successfully!");
-      setTestSubmitted(true); // Mark test as submitted
-      if (videoRef.current?.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach((track) => track.stop()); // Stop camera
+      const response = await axiosInstance.post(`/student/exam/submitExam/${examId}`);
+      if (response.data.success) {
+        setTestSubmitted(true);
+        toast.success("Exam submitted successfully! Redirecting in 3 seconds...");
+        stopVideo();
+        setTimeout(() => navigate('/student/myExams'), 3000);
       }
     } catch (error) {
-      console.error("Error submitting exam:", error);
-      toast.error(error?.response?.data?.message || "Failed to submit exam");
+      console.error('Error submitting exam:', error);
+      toast.error('Failed to submit exam');
     }
   };
   
@@ -481,17 +636,19 @@ const TestView = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-200">
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <h2 className="text-2xl font-bold text-red-700">Test Submitted</h2>
-          <p className="mt-2 text-gray-800">Your test has been automatically submitted.</p>
+          <p className="mt-2 text-gray-800">Your test has been submitted. Redirecting to My Exams in 3 seconds...</p>
         </div>
       </div>
     );
   }
 
-  if (!examDetails) {
+  if (!examDetails || isModelLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-200">
         <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-bold text-gray-800">Loading...</h2>
+          <h2 className="text-2xl font-bold text-gray-800">
+            {isModelLoading ? 'Loading face detection model...' : 'Loading exam...'}
+          </h2>
         </div>
       </div>
     );
@@ -501,7 +658,6 @@ const TestView = () => {
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
-      {/* Header */}
       <div className="bg-gray-800 shadow p-4 flex justify-between items-center fixed top-0 left-64 right-0 z-10">
         <h1 className="text-2xl font-bold text-white">{examDetails.examName}</h1>
         <div className="flex items-center space-x-4">
@@ -517,11 +673,6 @@ const TestView = () => {
               }`}>
                 Face: {faceDetected ? '✓' : '✗'}
               </div>
-              <div className={`text-xs font-bold p-1 rounded mt-1 ${
-                eyesDetected && !eyesLookingAway ? 'bg-green-600 text-white' : 'bg-red-700 text-white'
-              }`}>
-                Eyes: {eyesDetected && !eyesLookingAway ? '✓' : '✗'}
-              </div>
             </div>
           </div>
           <div className="text-xl font-semibold text-white">
@@ -533,12 +684,10 @@ const TestView = () => {
       </div>
 
       <div className="flex flex-1 pt-16">
-        {/* Wide Sidebar */}
         <div className="w-64 bg-gray-700 text-white flex flex-col py-4 fixed top-0 bottom-0 overflow-y-auto">
           <div className="px-4 mb-4">
             <h2 className="text-lg font-bold">Questions</h2>
           </div>
-          {/* MCQ Section */}
           {questionGroups.mcq.length > 0 && (
             <div className="mb-4">
               <h3 className="px-4 text-sm font-semibold text-blue-300">MCQs</h3>
@@ -561,7 +710,6 @@ const TestView = () => {
               </div>
             </div>
           )}
-          {/* Essay Section */}
           {questionGroups.essay.length > 0 && (
             <div className="mb-4">
               <h3 className="px-4 text-sm font-semibold text-yellow-300">Essays</h3>
@@ -584,7 +732,6 @@ const TestView = () => {
               </div>
             </div>
           )}
-          {/* Coding Section */}
           {questionGroups.coding.length > 0 && (
             <div className="mb-4">
               <h3 className="px-4 text-sm font-semibold text-purple-300">Coding</h3>
@@ -607,7 +754,28 @@ const TestView = () => {
               </div>
             </div>
           )}
-          {/* Assignment Section */}
+          {questionGroups.oa.length > 0 && (
+            <div className="mb-4">
+              <h3 className="px-4 text-sm font-semibold text-purple-200">Coding OA</h3>
+              <div className="flex flex-wrap px-4 gap-2">
+                {questionGroups.oa.map((q) => (
+                  <div
+                    key={q.index}
+                    className={`w-8 h-8 flex items-center justify-center cursor-pointer rounded-full border border-gray-500 ${
+                      currentQuestion === q.index
+                        ? 'bg-gray-600 text-white'
+                        : isQuestionAnswered(q._id)
+                        ? 'bg-green-600 text-white'
+                        : getQuestionTypeColor(q.questionType) + ' text-white'
+                    }`}
+                    onClick={() => setCurrentQuestion(q.index)}
+                  >
+                    {q.index + 1}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {questionGroups.assignment.length > 0 && (
             <div className="mb-4">
               <h3 className="px-4 text-sm font-semibold text-orange-300">Assignments</h3>
@@ -630,14 +798,54 @@ const TestView = () => {
               </div>
             </div>
           )}
+          {questionGroups.assignment_oa.length > 0 && (
+            <div className="mb-4">
+              <h3 className="px-4 text-sm font-semibold text-orange-200">Assignment OA</h3>
+              <div className="flex flex-wrap px-4 gap-2">
+                {questionGroups.assignment_oa.map((q) => (
+                  <div
+                    key={q.index}
+                    className={`w-8 h-8 flex items-center justify-center cursor-pointer rounded-full border border-gray-500 ${
+                      currentQuestion === q.index
+                        ? 'bg-gray-600 text-white'
+                        : isQuestionAnswered(q._id)
+                        ? 'bg-green-600 text-white'
+                        : getQuestionTypeColor(q.questionType) + ' text-white'
+                    }`}
+                    onClick={() => setCurrentQuestion(q.index)}
+                  >
+                    {q.index + 1}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {questionGroups.short_answer.length > 0 && (
+            <div className="mb-4">
+              <h3 className="px-4 text-sm font-semibold text-teal-300">Short Answers</h3>
+              <div className="flex flex-wrap px-4 gap-2">
+                {questionGroups.short_answer.map((q) => (
+                  <div
+                    key={q.index}
+                    className={`w-8 h-8 flex items-center justify-center cursor-pointer rounded-full border border-gray-500 ${
+                      currentQuestion === q.index
+                        ? 'bg-gray-600 text-white'
+                        : isQuestionAnswered(q._id)
+                        ? 'bg-green-600 text-white'
+                        : getQuestionTypeColor(q.questionType) + ' text-white'
+                    }`}
+                    onClick={() => setCurrentQuestion(q.index)}
+                  >
+                    {q.index + 1}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Main Content */}
         <div className="flex-1 p-6 mt-20 ml-64 relative pb-20">
-          {/* Question Content */}
           {renderQuestion(examDetails.questions[currentQuestion], currentQuestion)}
-
-          {/* Fixed Navigation Buttons */}
           <div className="fixed bottom-0 left-64 right-0 bg-white p-4 shadow-lg flex justify-between">
             <button
               onClick={handlePrevious}
@@ -653,11 +861,9 @@ const TestView = () => {
             >
               Next
             </button>
-
             <button
               onClick={handleSubmitExam}
-              disabled={currentQuestion === examDetails.questions.length - 1}
-              className="bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-900 disabled:bg-gray-400"
+              className="bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-900"
             >
               Submit Exam
             </button>

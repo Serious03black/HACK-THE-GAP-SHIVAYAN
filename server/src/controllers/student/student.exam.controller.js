@@ -255,7 +255,26 @@ const submitExam = asyncHandler(async (req, res) => {
 
   questionAnswers.forEach((doc) => (totalMarks += doc.answerMarks));
 
-  console.log("Total Marks:", totalMarks);
+        console.log("totalMarks => ", totalMarks);
+
+        const existedExam = await StudentExam.find({
+            student: new mongoose.Types.ObjectId(_id),
+            exam: new mongoose.Types.ObjectId(examId),
+        })
+
+        if(existedExam) {
+            return res.status(200)
+            .json(
+                new ApiResponse(
+                    200, 
+                    "Exam submitted successfully", 
+                    {
+                        answers : existedExam
+                    }
+                )
+            )
+        }
+
 
   const answers = await StudentExam.create({
     student: new mongoose.Types.ObjectId(_id),
@@ -271,96 +290,154 @@ const submitExam = asyncHandler(async (req, res) => {
   );
 });
 
-const attemptedExam = asyncHandler(async (req, res) => {
-  const { _id } = req.student;
+const attemptedExam = asyncHandler(async (req, res, next) => {
+    try {
+      const { _id } = req.student;
+  
+      const exams = await StudentAnswers.aggregate([
+        {
+          $match: {
+            student: new mongoose.Types.ObjectId(_id),
+            
+          },
+        },
+        {
+          $group: {
+            _id: "$exam",
+            totalScore: { $sum: { $cond: ["$isCorrect", "$answerMarks", 0] } },
+            totalQuestions: { $sum: 1 },
+            completedDate: { $max: "$answerTime" },
+            answers: { $push: "$$ROOT" }, // Keep all answers for reference
+          },
+        },
+        {
+          $lookup: {
+            from: "exams",
+            localField: "_id",
+            foreignField: "_id",
+            as: "examDetails",
+          },
+        },
+        { $unwind: "$examDetails" },
+        {
+          $lookup: {
+            from: "universities",
+            localField: "examDetails.university",
+            foreignField: "_id",
+            as: "universityDetails",
+          },
+        },
+        { $unwind: "$universityDetails" },
+        {
+          $project: {
+            examId: "$_id",
+            examName: "$examDetails.examName",
+            universityName: "$universityDetails.universityName",
+            totalScore: 1,
+            totalMarks: "$examDetails.examMarks",
+            completedDate: 1,
+            totalQuestions: 1,
+            status: "Completed", // Assuming completed since it's in history
+          },
+        },
+      ]);
+  
+      return res.status(200).json(
+        new ApiResponse(200, "Exams attempted successfully", { exams })
+      );
+    } catch (error) {
+      throw new ApiError(500, error.message);
+    }
+  });
 
-  const exams = await StudentAnswers.aggregate([
-    {
-      $match: { student: new mongoose.Types.ObjectId(_id) },
-    },
-    {
-      $group: {
-        _id: "$exam",
-        answers: { $push: "$$ROOT" },
-      },
-    },
-    {
-      $lookup: {
-        from: "exams",
-        localField: "_id",
-        foreignField: "_id",
-        as: "examDetails",
-      },
-    },
-    {
-      $unwind: "$examDetails",
-    },
-    {
-      $project: {
-        examName: "$examDetails.examName",
-        examDate: "$examDetails.examDate",
-        answers: 1,
-      },
-    },
-  ]);
-
-  return res.status(200).json(
-    new ApiResponse(200, "Attempted exams retrieved successfully", { exams })
-  );
-});
 
 const getExamResult = asyncHandler(async (req, res) => {
   const { examId } = req.params;
   const { _id } = req.student;
 
-  const answerSheet = await StudentExam.aggregate([
-    {
-      $match: {
-        $and: [
-          { student: new mongoose.Types.ObjectId(_id) },
-          { exam: new mongoose.Types.ObjectId(examId) },
-        ],
-      },
-    },
-    {
-      $lookup: {
-        from: "studentanswers",
-        localField: "exam",
-        foreignField: "exam",
-        as: "studentanswers",
-      },
-    },
-    {
-      $lookup: {
-        from: "questions",
-        localField: "exam",
-        foreignField: "exam",
-        as: "questions",
-      },
-    },
-    {
-      $project: {
-        _id: 1,
-        student: 1,
-        exam: 1,
-        totalQuestionsSolved: 1,
-        examStatus: 1,
-        examScore: 1,
-        examDurationByStudent: 1,
-        questions: 1,
-        studentanswers: 1,
-      },
-    },
-  ]);
 
-  if (!answerSheet.length) {
-    throw new ApiError(404, "No result found for this exam");
-  }
+        console.log("examId => ", examId);
+        console.log("_id => ", _id);
 
-  return res.status(200).json(
-    new ApiResponse(200, "Exam result retrieved successfully", { answerSheet })
-  );
-});
+        const answerSheet = await StudentExam.aggregate([
+            {
+                $match: {
+                    $and: [
+                        {
+                            student: new mongoose.Types.ObjectId(_id),
+                        },
+                        {
+                            exam: new mongoose.Types.ObjectId(examId),
+                        },
+                    ]
+                }
+            },
+            // {
+            //     $lookup: {
+            //         from: "studentanswers",
+            //         localField: "exam",
+            //         foreignField: "exam",
+            //         as: "studentanswers",
+            //     }
+            // },
+
+            // {
+            //     $lookup: {
+            //         from: "questions",
+            //         localField: "exam",
+            //         foreignField: "exam",
+            //         as: "questions",
+            //     }
+            // },
+
+            // {
+            //     $addFields: {
+            //         questions: "$questions",
+            //         studentanswers: "$studentanswers"
+            //     }
+            // },
+
+
+            // {
+            //     $project: {
+            //         _id: 1,
+            //         student: 1,
+            //         exam: 1,
+
+            //         answers: 1,
+            //         totalQuestionsSolved: 1,
+            //         examStatus: 1,
+            //         examScore: 1,
+            //         examDurationByStudent: 1,
+
+
+            //         questions: 1,
+            //         studentanswers: 1,
+            //     }
+            // }
+        ])
+
+
+
+        return res
+        .status(200)
+        .json(      
+            new ApiResponse(
+                200, 
+                "Exam result viewed successfully", 
+                {
+                    answerSheet
+                }
+            )
+        );
+    } 
+    catch (error) {
+        throw new ApiError(500, error.message);
+    }
+}); 
+
+
+
 
 export {
   getMyExams,
