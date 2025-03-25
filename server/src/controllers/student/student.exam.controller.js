@@ -481,6 +481,7 @@ const attemptedExam = asyncHandler(async (req, res, next) => {
         {
           $match: {
             student: new mongoose.Types.ObjectId(_id),
+            
           },
         },
         {
@@ -539,6 +540,10 @@ const getExamResult = asyncHandler(async (req, res, next) => {
         const { examId } = req.params;
         const {_id} = req.student;
 
+
+        console.log("examId => ", examId);
+        console.log("_id => ", _id);
+
         const answerSheet = await StudentExam.aggregate([
             {
                 $match: {
@@ -552,49 +557,49 @@ const getExamResult = asyncHandler(async (req, res, next) => {
                     ]
                 }
             },
-            {
-                $lookup: {
-                    from: "studentanswers",
-                    localField: "exam",
-                    foreignField: "exam",
-                    as: "studentanswers",
-                }
-            },
+            // {
+            //     $lookup: {
+            //         from: "studentanswers",
+            //         localField: "exam",
+            //         foreignField: "exam",
+            //         as: "studentanswers",
+            //     }
+            // },
 
-            {
-                $lookup: {
-                    from: "questions",
-                    localField: "exam",
-                    foreignField: "exam",
-                    as: "questions",
-                }
-            },
+            // {
+            //     $lookup: {
+            //         from: "questions",
+            //         localField: "exam",
+            //         foreignField: "exam",
+            //         as: "questions",
+            //     }
+            // },
 
-            {
-                $addFields: {
-                    questions: "$questions",
-                    studentanswers: "$studentanswers"
-                }
-            },
-
-
-            {
-                $project: {
-                    _id: 1,
-                    student: 1,
-                    exam: 1,
-
-                    answers: 1,
-                    totalQuestionsSolved: 1,
-                    examStatus: 1,
-                    examScore: 1,
-                    examDurationByStudent: 1,
+            // {
+            //     $addFields: {
+            //         questions: "$questions",
+            //         studentanswers: "$studentanswers"
+            //     }
+            // },
 
 
-                    questions: 1,
-                    studentanswers: 1,
-                }
-            }
+            // {
+            //     $project: {
+            //         _id: 1,
+            //         student: 1,
+            //         exam: 1,
+
+            //         answers: 1,
+            //         totalQuestionsSolved: 1,
+            //         examStatus: 1,
+            //         examScore: 1,
+            //         examDurationByStudent: 1,
+
+
+            //         questions: 1,
+            //         studentanswers: 1,
+            //     }
+            // }
         ])
 
 
