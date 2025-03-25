@@ -13,9 +13,6 @@ const getMyExams = asyncHandler(async (req, res) => {
 
   const exams = await Exam.find({ students: new mongoose.Types.ObjectId(_id) });
 
-  console.log("Student ID:", _id);
-  console.log("Exams:", exams);
-
   return res.status(200).json(
     new ApiResponse(200, "Exams retrieved successfully", { exams })
   );
@@ -62,7 +59,6 @@ const viewExamResult = asyncHandler(async (req, res) => {
         as: "questions",
       },
     },
-    // Removed invalid pipeline in $lookup - "$questions.questionAnswer" syntax was incorrect
   ]);
 
   if (!answerSheet.length) {
@@ -79,11 +75,11 @@ const getStudentDashboard = asyncHandler(async (req, res) => {
 
   const dashboard = await Exam.aggregate([
     {
-      $match: { students: new mongoose.Types.ObjectId(_id) }, // Fixed "student" to "students"
+      $match: { students: new mongoose.Types.ObjectId(_id) },
     },
     {
       $lookup: {
-        from: "studentanswers", // Corrected collection name to match StudentAnswers model
+        from: "studentanswers",
         localField: "_id",
         foreignField: "exam",
         as: "answers",
@@ -115,9 +111,6 @@ const getStudentDashboard = asyncHandler(async (req, res) => {
 const getExamDetails = asyncHandler(async (req, res) => {
   const { examId } = req.params;
   const { _id } = req.student;
-
-  console.log("Exam ID:", examId);
-  console.log("Student ID:", _id);
 
   const exam = await Exam.aggregate([
     {
@@ -167,8 +160,6 @@ const submitMCQAnswer = asyncHandler(async (req, res) => {
   const { examId } = req.params;
   const { _id } = req.student;
   const { questionId, answerText, answerDuration, answerMarks, isAnswered, answerTime } = req.body;
-
-  console.log("Request Body:", req.body);
 
   emptyFieldValidator(answerText, answerDuration, answerMarks, isAnswered, answerTime);
 
@@ -225,16 +216,16 @@ const submitMCQAnswer = asyncHandler(async (req, res) => {
 const submitExam = asyncHandler(async (req, res) => {
   const { examId } = req.params;
   const { _id } = req.student;
-  const { examDurationByStudent } = req.body; // Optional: sent from frontend
+  const { examDurationByStudent } = req.body;
 
-  const existedExam = await StudentExam.findOne({
+  const existingExam = await StudentExam.findOne({
     student: new mongoose.Types.ObjectId(_id),
     exam: new mongoose.Types.ObjectId(examId),
   });
 
-  if (existedExam) {
+  if (existingExam) {
     return res.status(200).json(
-      new ApiResponse(200, "Exam already submitted", { answers: existedExam })
+      new ApiResponse(200, "Exam already submitted", { answers: existingExam })
     );
   }
 
@@ -255,33 +246,12 @@ const submitExam = asyncHandler(async (req, res) => {
 
   questionAnswers.forEach((doc) => (totalMarks += doc.answerMarks));
 
-        console.log("totalMarks => ", totalMarks);
-
-        const existedExam = await StudentExam.find({
-            student: new mongoose.Types.ObjectId(_id),
-            exam: new mongoose.Types.ObjectId(examId),
-        })
-
-        if(existedExam) {
-            return res.status(200)
-            .json(
-                new ApiResponse(
-                    200, 
-                    "Exam submitted successfully", 
-                    {
-                        answers : existedExam
-                    }
-                )
-            )
-        }
-
-
   const answers = await StudentExam.create({
     student: new mongoose.Types.ObjectId(_id),
     exam: new mongoose.Types.ObjectId(examId),
     examStatus,
     examScore: totalMarks,
-    examDurationByStudent: examDurationByStudent || 1, // Use frontend value or default
+    examDurationByStudent: examDurationByStudent || 1,
     totalQuestionsSolved,
   });
 
@@ -290,161 +260,93 @@ const submitExam = asyncHandler(async (req, res) => {
   );
 });
 
-const attemptedExam = asyncHandler(async (req, res, next) => {
-    try {
-      const { _id } = req.student;
-  
-      const exams = await StudentAnswers.aggregate([
-        {
-          $match: {
-            student: new mongoose.Types.ObjectId(_id),
-            
-          },
-        },
-        {
-          $group: {
-            _id: "$exam",
-            totalScore: { $sum: { $cond: ["$isCorrect", "$answerMarks", 0] } },
-            totalQuestions: { $sum: 1 },
-            completedDate: { $max: "$answerTime" },
-            answers: { $push: "$$ROOT" }, // Keep all answers for reference
-          },
-        },
-        {
-          $lookup: {
-            from: "exams",
-            localField: "_id",
-            foreignField: "_id",
-            as: "examDetails",
-          },
-        },
-        { $unwind: "$examDetails" },
-        {
-          $lookup: {
-            from: "universities",
-            localField: "examDetails.university",
-            foreignField: "_id",
-            as: "universityDetails",
-          },
-        },
-        { $unwind: "$universityDetails" },
-        {
-          $project: {
-            examId: "$_id",
-            examName: "$examDetails.examName",
-            universityName: "$universityDetails.universityName",
-            totalScore: 1,
-            totalMarks: "$examDetails.examMarks",
-            completedDate: 1,
-            totalQuestions: 1,
-            status: "Completed", // Assuming completed since it's in history
-          },
-        },
-      ]);
-  
-      return res.status(200).json(
-        new ApiResponse(200, "Exams attempted successfully", { exams })
-      );
-    } catch (error) {
-      throw new ApiError(500, error.message);
-    }
-  });
+const attemptedExam = asyncHandler(async (req, res) => {
+  try {
+    const { _id } = req.student;
 
+    const exams = await StudentAnswers.aggregate([
+      {
+        $match: {
+          student: new mongoose.Types.ObjectId(_id),
+        },
+      },
+      {
+        $group: {
+          _id: "$exam",
+          totalScore: { $sum: { $cond: ["$isCorrect", "$answerMarks", 0] } },
+          totalQuestions: { $sum: 1 },
+          completedDate: { $max: "$answerTime" },
+          answers: { $push: "$$ROOT" },
+        },
+      },
+      {
+        $lookup: {
+          from: "exams",
+          localField: "_id",
+          foreignField: "_id",
+          as: "examDetails",
+        },
+      },
+      { $unwind: "$examDetails" },
+      {
+        $lookup: {
+          from: "universities",
+          localField: "examDetails.university",
+          foreignField: "_id",
+          as: "universityDetails",
+        },
+      },
+      { $unwind: "$universityDetails" },
+      {
+        $project: {
+          examId: "$_id",
+          examName: "$examDetails.examName",
+          universityName: "$universityDetails.universityName",
+          totalScore: 1,
+          totalMarks: "$examDetails.examMarks",
+          completedDate: 1,
+          totalQuestions: 1,
+          status: "Completed",
+        },
+      },
+    ]);
+
+    return res.status(200).json(
+      new ApiResponse(200, "Exams attempted successfully", { exams })
+    );
+  } catch (error) {
+    throw new ApiError(500, error.message);
+  }
+});
 
 const getExamResult = asyncHandler(async (req, res) => {
   const { examId } = req.params;
   const { _id } = req.student;
 
+  const answerSheet = await StudentExam.aggregate([
+    {
+      $match: {
+        $and: [
+          { student: new mongoose.Types.ObjectId(_id) },
+          { exam: new mongoose.Types.ObjectId(examId) },
+        ],
+      },
+    },
+  ]);
 
-        console.log("examId => ", examId);
-        console.log("_id => ", _id);
-
-        const answerSheet = await StudentExam.aggregate([
-            {
-                $match: {
-                    $and: [
-                        {
-                            student: new mongoose.Types.ObjectId(_id),
-                        },
-                        {
-                            exam: new mongoose.Types.ObjectId(examId),
-                        },
-                    ]
-                }
-            },
-            // {
-            //     $lookup: {
-            //         from: "studentanswers",
-            //         localField: "exam",
-            //         foreignField: "exam",
-            //         as: "studentanswers",
-            //     }
-            // },
-
-            // {
-            //     $lookup: {
-            //         from: "questions",
-            //         localField: "exam",
-            //         foreignField: "exam",
-            //         as: "questions",
-            //     }
-            // },
-
-            // {
-            //     $addFields: {
-            //         questions: "$questions",
-            //         studentanswers: "$studentanswers"
-            //     }
-            // },
-
-
-            // {
-            //     $project: {
-            //         _id: 1,
-            //         student: 1,
-            //         exam: 1,
-
-            //         answers: 1,
-            //         totalQuestionsSolved: 1,
-            //         examStatus: 1,
-            //         examScore: 1,
-            //         examDurationByStudent: 1,
-
-
-            //         questions: 1,
-            //         studentanswers: 1,
-            //     }
-            // }
-        ])
-
-
-
-        return res
-        .status(200)
-        .json(      
-            new ApiResponse(
-                200, 
-                "Exam result viewed successfully", 
-                {
-                    answerSheet
-                }
-            )
-        );
-    } 
-    catch (error) {
-        throw new ApiError(500, error.message);
-    }
-}); 
-
-
-
+  return res.status(200).json(
+    new ApiResponse(200, "Exam result viewed successfully", {
+      answerSheet
+    })
+  );
+});
 
 export {
   getMyExams,
-  saveAnswers, // Added to exports
+  saveAnswers,
   submitExam,
   viewExamResult,
-  getStudentDashboard, // Added to exports
+  getStudentDashboard,
   getExamDetails,
   submitMCQAnswer,
   getExamResult,

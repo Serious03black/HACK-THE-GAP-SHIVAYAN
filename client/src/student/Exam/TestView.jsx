@@ -5,7 +5,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from './../../services/axiosInstance';
 import * as tf from "@tensorflow/tfjs";
 import { createDetector, SupportedModels } from "@tensorflow-models/face-detection";
-import RichTextEditor from './RichTextEditor';
 
 const TestView = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -526,11 +525,7 @@ const TestView = () => {
           <div className={`p-4 rounded-lg shadow ${answered ? 'bg-green-100' : 'bg-white'}`}>
             <p className="text-gray-800 text-lg mb-2">{question.questionTitle}</p>
             <p className="text-gray-600 mb-2">{question.questionDescription}</p>
-            <RichTextEditor
-              content={answered ? answer?.answerText : unsavedAnswer}
-              onChange={(value) => handleAnswerChange(index, value)}
-              placeholder="Write your essay here..."
-            />
+           
             <button
               onClick={() => submitQuestionAnswer(index)}
               className="mt-4 bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700"
@@ -582,12 +577,7 @@ const TestView = () => {
           <div className={`p-4 rounded-lg shadow ${answered ? 'bg-green-100' : 'bg-white'}`}>
             <p className="text-gray-800 text-lg mb-2">{question.questionTitle}</p>
             <p className="text-gray-600 mb-2">{question.questionDescription}</p>
-            <RichTextEditor
-              content={answer?.answerText || ''}
-              onChange={(value) => handleImmediateAnswerChange(index, value)}
-              placeholder="Type your short answer here..."
-              limited={true}
-            />
+            
           </div>
         );
       default:
