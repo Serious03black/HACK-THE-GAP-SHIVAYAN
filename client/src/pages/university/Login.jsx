@@ -21,9 +21,9 @@ const Login = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.universityEmail) newErrors.universityEmail = "universityEmail is required";
-    else if (!/\S+@\S+\.\S+/.test(formData.universityEmail)) newErrors.universityEmail = "universityEmail is invalid";
-    if (!formData.universityPassword) newErrors.universityPassword = "universityPassword is required";
+    if (!formData.universityEmail) newErrors.universityEmail = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(formData.universityEmail)) newErrors.universityEmail = "Email is invalid";
+    if (!formData.universityPassword) newErrors.universityPassword = "Password is required";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -33,102 +33,91 @@ const Login = () => {
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-
     try {
       const response = await axiosInstance.post("/university/auth/login", formData);
-
       if (response.status === 200) {
         toast.success("Login successful!", { autoClose: 2000 });
         localStorage.setItem("examUser", "university");
         setTimeout(() => navigate("/university"), 2000);
       }
     } catch (error) {
-      if (error.response) {
-        toast.error(error?.response?.data?.message || "Something went wrong!");
-      } else {
-        toast.error("Network error. Please try again later.");
-      }
+      toast.error(error?.response?.data?.message || "Something went wrong!");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleForgotuniversityPassword = () => {
-    navigate("/forgotuniversityPassword");
-  };
+  const handleForgotuniversityPassword = () => navigate("/forgotuniversityPassword");
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="bg-black w-full max-w-md p-8 rounded-lg shadow-lg border border-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-yellow-50 to-white flex items-center justify-center py-6 px-4 sm:px-6 lg:px-8">
+      <div className="bg-white w-full max-w-lg p-8 rounded-2xl shadow-xl border border-green-100 transform transition-all hover:scale-[1.02]">
         {/* Header */}
-        <h2 className="text-3xl font-bold text-white text-center mb-6">
+        <h2 className="text-4xl font-extrabold text-green-600 text-center mb-2">
           Welcome Back
         </h2>
-        <p className="text-center text-gray-400 mb-6 text-sm">
-          University Login
+        <p className="text-center text-gray-600 mb-8 font-medium">
+          University Login Portal
         </p>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* universityEmail Field */}
+          {/* Email Field */}
           <div>
-            <label htmlFor="universityEmail" className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="universityEmail" className="block text-sm font-semibold text-gray-700 mb-2">
               University Email
             </label>
             <div className="relative">
               <input
-                type="email" // Corrected from "universityEmail" to "email"
+                type="email"
                 id="universityEmail"
                 name="universityEmail"
                 value={formData.universityEmail}
                 onChange={handleChange}
                 required
-                className={`w-full pl-10 pr-4 py-3 bg-gray-800 text-gray-100 border ${
-                  errors.universityEmail ? "border-red-500" : "border-gray-700"
-                } rounded-md focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent transition-all duration-200`}
-                placeholder="you@example.com"
+                className={`w-full pl-12 pr-4 py-3 bg-gray-50 text-gray-800 border-2 ${
+                  errors.universityEmail ? "border-red-400" : "border-green-300"
+                } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-green-500 transition-all duration-300`}
+                placeholder="you@university.com"
               />
-              <i className="fa fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+              <i className="fa fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-green-500 text-lg"></i>
             </div>
             {errors.universityEmail && (
-              <p className="text-red-500 text-xs mt-1">{errors.universityEmail}</p>
+              <p className="text-red-500 text-xs mt-2 font-medium">{errors.universityEmail}</p>
             )}
           </div>
 
-          {/* universityPassword Field */}
+          {/* Password Field */}
           <div>
-            <label
-              htmlFor="universityPassword"
-              className="block text-sm font-medium text-gray-300 mb-1"
-            >
-              University Password
+            <label htmlFor="universityPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+              Password
             </label>
             <div className="relative">
               <input
-                type="password" // Corrected from "universityPassword" to "password"
+                type="password"
                 id="universityPassword"
                 name="universityPassword"
                 value={formData.universityPassword}
                 onChange={handleChange}
                 required
-                className={`w-full pl-10 pr-4 py-3 bg-gray-800 text-gray-100 border ${
-                  errors.universityPassword ? "border-red-500" : "border-gray-700"
-                } rounded-md focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent transition-all duration-200`}
-                placeholder="••••••"
+                className={`w-full pl-12 pr-4 py-3 bg-gray-50 text-gray-800 border-2 ${
+                  errors.universityPassword ? "border-red-400" : "border-green-300"
+                } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-green-500 transition-all duration-300`}
+                placeholder="••••••••"
               />
-              <i className="fa fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+              <i className="fa fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-green-500 text-lg"></i>
             </div>
             {errors.universityPassword && (
-              <p className="text-red-500 text-xs mt-1">{errors.universityPassword}</p>
+              <p className="text-red-500 text-xs mt-2 font-medium">{errors.universityPassword}</p>
             )}
           </div>
 
-          {/* Forgot universityPassword */}
+          {/* Forgot Password */}
           <div className="text-right">
             <button
               type="button"
               onClick={handleForgotuniversityPassword}
-              className="text-gray-300 hover:text-white hover:underline text-sm font-medium transition-all duration-200"
+              className="text-green-600 hover:text-green-800 hover:underline text-sm font-semibold transition-all duration-200"
             >
               Forgot Password?
             </button>
@@ -138,20 +127,30 @@ const Login = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`w-full py-3 text-lg font-semibold rounded-md text-white ${
+            className={`w-full py-3 text-lg font-bold rounded-lg text-white ${
               isSubmitting
-                ? "bg-gray-600 cursor-not-allowed"
-                : "bg-gray-700 hover:bg-gray-600"
-            } transition-all duration-300`}
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-500 hover:bg-green-600"
+            } shadow-md hover:shadow-lg transition-all duration-300`}
           >
-            {isSubmitting ? "Logging In..." : "Log In"}
+            {isSubmitting ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin h-5 w-5 mr-2 text-white" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Logging In...
+              </span>
+            ) : (
+              "Log In"
+            )}
           </button>
         </form>
 
         {/* Signup Link */}
-        <div className="mt-6 text-center text-sm text-gray-400">
-          Don’t have an account?{" "}
-          <Link to="/university/signup" className="text-gray-300 hover:text-white hover:underline font-medium">
+        <div className="mt-6 text-center text-sm">
+          <span className="text-gray-600 font-medium">Don’t have an account? </span>
+          <Link to="/university/signup" className="text-yellow-500 hover:text-yellow-600 hover:underline font-semibold transition-all duration-200">
             Sign up here
           </Link>
         </div>
@@ -168,7 +167,8 @@ const Login = () => {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        theme="dark" // Changed to dark theme to match UI
+        theme="light"
+        toastClassName="rounded-lg shadow-lg bg-white text-gray-800 border border-green-200"
       />
     </div>
   );

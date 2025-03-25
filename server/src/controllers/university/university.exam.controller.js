@@ -572,14 +572,15 @@ const getAiDescription = asyncHandler(async (req, res) => {
             });
         }
 
+
         // Get the generative model
         const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
         // Define the prompt
-        let prompt = `Generate a 10 to 15 words description on ${inputText}`;
+        let prompt = `Create a description for the question ${inputText} in 10 to 15 words`;
 
-        if(type === "Coding") {
-            prompt = `Generate a 40 to 50 words description on ${inputText} with details`
+        if(type === "OA") {
+            prompt = `Create a description for a coding question  (${inputText}) in details in 40 to 50 words`
         }
 
         // Generate content
@@ -601,6 +602,89 @@ const getAiDescription = asyncHandler(async (req, res) => {
 
 });
 
+
+const getStudent = asyncHandler(async (req, res) => {
+    try {
+        const { studentId } = req.params;
+
+        const student = await Student.findById(studentId);
+        
+        console.log("studentId :", studentId);
+        console.log("student :", student);
+
+        return res.status(200).json({
+            status: 'success',
+            data: {
+                student
+            }
+        });
+    } catch(error) {
+        throw new ApiError(500, error.message || "Error in getting student details");
+    }
+
+});
+
+
+// in this function we want to get all the exams that a student has taken
+const getStudentExamDetails = asyncHandler(async (req, res) => {
+    try {
+        const { studentId } = req.params;
+
+        // Validate studentId
+        if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
+            throw new ApiError(400, "Invalid student ID");
+        }
+
+        // Fetch all exams where the student is listed in the students array
+        const exams = await Exam.find({ students: studentId })
+            .populate({
+                path: 'university',
+                select: 'universityName universityEmail' // Adjust fields as per your University schema
+            })
+            .lean(); // Use lean() for better performance (returns plain JS objects)
+
+        if (!exams || exams.length === 0) {
+            return res.status(200).json({
+                statusCode: 200,
+                data: {
+                    exams: [],
+                    message: "No exams found for this student"
+                },
+                success: true
+            });
+        }
+
+        // Fetch questions for each exam
+        const examIds = exams.map(exam => exam._id);
+        const questions = await Question.find({ exam: { $in: examIds } })
+            .lean();
+
+        // Organize questions by exam
+        const examDetails = exams.map(exam => {
+            const examQuestions = questions.filter(q => q.exam.toString() === exam._id.toString());
+            return {
+                ...exam,
+                questions: examQuestions
+            };
+        });
+
+        // Response
+        res.status(200).json({
+            statusCode: 200,
+            data: {
+                exams: examDetails,
+                totalExams: examDetails.length,
+                studentId
+            },
+            success: true
+        });
+
+    } catch (error) {
+        throw new ApiError(500, error.message || "Error in getting student exam details");
+    }
+});
+
+
 export {
     createExam,
     addQuestions,
@@ -612,5 +696,7 @@ export {
     assignExam,
     getAllStudents,
     getUniversityDashboard,
-    getAiDescription
+    getAiDescription,
+    getStudent,
+    getStudentExamDetails,
 }
