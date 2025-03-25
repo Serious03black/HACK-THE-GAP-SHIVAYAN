@@ -40,12 +40,6 @@ const StudentDashboard = ({ sidebarOpen, setSidebarOpen }) => {
               <span>{item}</span>
             </div>
           ))}
-          <div
-            onClick={handleLogout}
-            className="p-4 cursor-pointer hover:bg-green-700 transition-colors flex items-center space-x-2 absolute bottom-4 w-full"
-          >
-            <span>Logout</span>
-          </div>
         </nav>
       </div>
 
