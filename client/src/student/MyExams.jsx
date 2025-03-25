@@ -4,9 +4,9 @@ import axiosInstance from '../services/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 
 const MyExams = () => {
-  const [exams, setExams] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const navigate =  useNavigate();
+const [exams, setExams] = useState([]);
+const [isLoading, setIsLoading] = useState(true);
+const navigate =  useNavigate();
 
   useEffect(() => {
     const fetchExams = async () => {

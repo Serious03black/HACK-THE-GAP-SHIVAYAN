@@ -431,7 +431,7 @@ const submitExam = asyncHandler(async (req, res, next) => {
         })
 
         if(existedExam) {
-            return res.status(400)
+            return res.status(200)
             .json(
                 new ApiResponse(
                     200, 
@@ -620,6 +620,8 @@ const getExamResult = asyncHandler(async (req, res, next) => {
         throw new ApiError(500, error.message);
     }
 }); 
+
+
 
 
 export {
