@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { createEditor } from 'slate';
-import { Slate, Editable, withReact } from 'slate-react';
-import { withHistory } from 'slate-history';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from './../../services/axiosInstance';
 import * as tf from "@tensorflow/tfjs";
 import { createDetector, SupportedModels } from "@tensorflow-models/face-detection";
+import RichTextEditor from './RichTextEditor';
 
 const TestView = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -16,6 +14,7 @@ const TestView = () => {
   const [faceDetected, setFaceDetected] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState([]);
+  const [unsavedAnswers, setUnsavedAnswers] = useState({});
   const [examDetails, setExamDetails] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [answerStartTimes, setAnswerStartTimes] = useState({});
@@ -26,7 +25,8 @@ const TestView = () => {
   const examId = useParams().id;
   const navigate = useNavigate();
 
-  const editor = useMemo(() => withHistory(withReact(createEditor())), []);
+  // Cloudinary photo URL (replace with your actual URL)
+  const referencePhotoUrl = 'https://res.cloudinary.com/your-cloud-name/image/upload/v1234567890/reference-photo.jpg';
 
   useEffect(() => {
     const loadModel = async () => {
@@ -90,10 +90,10 @@ const TestView = () => {
       const handleKeyDown = (e) => {
         if (!testSubmitted) {
           const blockedKeys = [
-            'Escape', 'F11', 'F5', // Added Escape, ensured F11
-            'Ctrl+r', 'Ctrl+R', 'Ctrl+t', 'Ctrl+T', 
-            'Ctrl+w', 'Ctrl+W', 'Ctrl+n', 'Ctrl+N', 
-            'Alt+F4', 'Alt+Tab' // Added Alt+Tab for additional control
+            'Escape', 'F11', 'F5',
+            'Ctrl+r', 'Ctrl+R', 'Ctrl+t', 'Ctrl+T',
+            'Ctrl+w', 'Ctrl+W', 'Ctrl+n', 'Ctrl+N',
+            'Alt+F4', 'Alt+Tab'
           ];
           const keyCombo = `${e.ctrlKey ? 'Ctrl+' : ''}${e.altKey ? 'Alt+' : ''}${e.key}`;
           if (blockedKeys.includes(keyCombo) || blockedKeys.includes(e.key)) {
@@ -201,7 +201,8 @@ const TestView = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => {
-          detectFace();
+          detectFace(); // Start real-time detection
+          startPeriodicPhotoCheck(); // Start periodic photo check
         };
       }
       if (!document.fullscreenElement) {
@@ -239,14 +240,12 @@ const TestView = () => {
     try {
       const video = videoRef.current;
       await new Promise((resolve) => {
-        if (video.readyState >= 2) resolve(); // Ensure video is ready
+        if (video.readyState >= 2) resolve();
         else video.onloadeddata = resolve;
       });
 
       const tensor = tf.browser.fromPixels(video);
-      console.log("Tensor shape:", tensor.shape);
       const detections = await detector.estimateFaces(tensor, { flipHorizontal: false });
-      console.log("Detected faces:", detections);
       tf.dispose(tensor);
 
       if (detections.length === 0) {
@@ -273,11 +272,10 @@ const TestView = () => {
         }
       } else {
         setFaceDetected(true);
-        // Do not reset warningCount to maintain cumulative warnings
       }
 
       if (!testSubmitted) {
-        requestAnimationFrame(detectFace); // Continuous detection
+        requestAnimationFrame(detectFace);
       }
     } catch (error) {
       console.error("Face detection error:", error);
@@ -285,7 +283,132 @@ const TestView = () => {
     }
   };
 
-  const handleAnswerChange = async (questionIndex, value) => {
+  const startPeriodicPhotoCheck = () => {
+    if (testSubmitted || !detector) return;
+
+    const checkPhoto = async () => {
+      try {
+        // Capture video frame
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const videoTensor = tf.browser.fromPixels(canvas);
+
+        // Fetch and process Cloudinary photo
+        const img = new Image();
+        img.crossOrigin = "Anonymous"; // Required for CORS
+        img.src = referencePhotoUrl;
+        await new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = () => {
+            console.error("Failed to load Cloudinary photo");
+            resolve(); // Continue even if image fails to load
+          };
+        });
+        const photoTensor = tf.browser.fromPixels(img);
+
+        // Detect faces in both
+        const videoDetections = await detector.estimateFaces(videoTensor, { flipHorizontal: false });
+        const photoDetections = await detector.estimateFaces(photoTensor, { flipHorizontal: false });
+
+        // Clean up tensors
+        tf.dispose([videoTensor, photoTensor]);
+
+        // Basic comparison: Check number of faces
+        if (videoDetections.length !== photoDetections.length) {
+          if (warningCount < 3) {
+            setWarningCount(prev => prev + 1);
+            toast.warn(`Warning ${warningCount + 1} of 3: Face count mismatch (Video: ${videoDetections.length}, Photo: ${photoDetections.length})`);
+          } else {
+            setTestSubmitted(true);
+            toast.error("Test submitted: Face count mismatch with reference photo");
+            stopVideo();
+            submitAndRedirect();
+          }
+        } else if (videoDetections.length === 1 && photoDetections.length === 1) {
+          // Optional: Compare bounding box similarity (basic check)
+          const videoBox = videoDetections[0].box;
+          const photoBox = photoDetections[0].box;
+          const boxDiff = Math.abs(videoBox.xMin - photoBox.xMin) + Math.abs(videoBox.yMin - photoBox.yMin);
+          if (boxDiff > 100) { // Arbitrary threshold, adjust as needed
+            if (warningCount < 3) {
+              setWarningCount(prev => prev + 1);
+              toast.warn(`Warning ${warningCount + 1} of 3: Face position mismatch with reference photo`);
+            } else {
+              setTestSubmitted(true);
+              toast.error("Test submitted: Face position mismatch with reference photo");
+              stopVideo();
+              submitAndRedirect();
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error during periodic photo check:", error);
+        toast.error("Failed to compare video with reference photo");
+      }
+    };
+
+    // Run every 5 seconds
+    const intervalId = setInterval(checkPhoto, 5000);
+    return () => clearInterval(intervalId); // Cleanup on unmount or test submission
+  };
+
+  const handleAnswerChange = (questionIndex, value) => {
+    setUnsavedAnswers(prev => ({
+      ...prev,
+      [questionIndex]: value,
+    }));
+  };
+
+  const submitQuestionAnswer = async (questionIndex) => {
+    const question = examDetails.questions[questionIndex];
+    const value = unsavedAnswers[questionIndex] || '';
+    const startTime = answerStartTimes[questionIndex] || Date.now();
+    const answerDuration = Math.floor((Date.now() - startTime) / 1000);
+
+    const answerObj = {
+      examId: examDetails._id,
+      questionId: question._id,
+      answerText: value,
+      answerDuration,
+      answerMarks: question.questionMarks,
+      isAnswered: true,
+      answerTime: new Date().toISOString(),
+    };
+
+    setAnswers(prev => {
+      const existingIndex = prev.findIndex(a => a.questionId === question._id);
+      if (existingIndex >= 0) {
+        const newAnswers = [...prev];
+        newAnswers[existingIndex] = answerObj;
+        return newAnswers;
+      }
+      return [...prev, answerObj];
+    });
+
+    try {
+      if (question.questionType.toLowerCase() === 'essay') {
+        await axiosInstance.post('/student/exam/submitAnswer', answerObj);
+        toast.success('Essay answer submitted successfully');
+      } else if (question.questionType.toLowerCase() === 'coding' || question.questionType.toLowerCase() === 'oa') {
+        await axiosInstance.post('/student/exam/submitAnswer', answerObj);
+        toast.success('Coding answer submitted successfully');
+      }
+      setUnsavedAnswers(prev => {
+        const newUnsaved = { ...prev };
+        delete newUnsaved[questionIndex];
+        return newUnsaved;
+      });
+    } catch (error) {
+      console.error(`Error submitting ${question.questionType} answer:`, error);
+      toast.error(`Failed to submit ${question.questionType} answer`);
+    }
+  };
+
+  const handleImmediateAnswerChange = async (questionIndex, value) => {
     const question = examDetails.questions[questionIndex];
     const startTime = answerStartTimes[questionIndex] || Date.now();
     const answerDuration = Math.floor((Date.now() - startTime) / 1000);
@@ -293,11 +416,11 @@ const TestView = () => {
     const answerObj = {
       examId: examDetails._id,
       questionId: question._id,
-      answerText: typeof value === 'object' && !(value instanceof File) ? JSON.stringify(value) : value,
+      answerText: value,
       answerDuration,
       answerMarks: question.questionMarks,
       isAnswered: true,
-      answerTime: new Date().toISOString()
+      answerTime: new Date().toISOString(),
     };
 
     setAnswers(prev => {
@@ -314,12 +437,6 @@ const TestView = () => {
       if (question.questionType.toLowerCase() === 'mcq') {
         await axiosInstance.post('/student/exam/submitMCQAnswer/' + examId, answerObj);
         toast.success('MCQ answer submitted successfully');
-      } else if (question.questionType.toLowerCase() === 'essay') {
-        await axiosInstance.post('/student/exam/submitAnswer', answerObj);
-        toast.success('Essay answer submitted successfully');
-      } else if (question.questionType.toLowerCase() === 'coding' || question.questionType.toLowerCase() === 'oa') {
-        await axiosInstance.post('/student/exam/submitAnswer', answerObj);
-        toast.success('Coding answer submitted successfully');
       } else if (question.questionType.toLowerCase() === 'assignment' || question.questionType.toLowerCase() === 'assignment_oa') {
         const formData = new FormData();
         for (const [key, val] of Object.entries(answerObj)) {
@@ -346,7 +463,6 @@ const TestView = () => {
     if (examDetails && currentQuestion < examDetails.questions.length - 1) {
       setAnswerStartTimes(prev => ({ ...prev, [currentQuestion]: Date.now() }));
       setCurrentQuestion(prev => prev + 1);
-      editor.history = { undos: [], redos: [] };
     }
   };
 
@@ -354,7 +470,6 @@ const TestView = () => {
     if (currentQuestion > 0) {
       setAnswerStartTimes(prev => ({ ...prev, [currentQuestion]: Date.now() }));
       setCurrentQuestion(prev => prev - 1);
-      editor.history = { undos: [], redos: [] };
     }
   };
 
@@ -382,6 +497,7 @@ const TestView = () => {
 
   const renderQuestion = (question, index) => {
     const answer = getAnswerForQuestion(question._id);
+    const unsavedAnswer = unsavedAnswers[index] || '';
     const answered = isQuestionAnswered(question._id);
 
     switch (question.questionType.toLowerCase()) {
@@ -397,7 +513,7 @@ const TestView = () => {
                   name={`question-${index}`}
                   value={option}
                   checked={answer?.answerText === option}
-                  onChange={() => handleAnswerChange(index, option)}
+                  onChange={() => handleImmediateAnswerChange(index, option)}
                   className="mr-2"
                 />
                 {option}
@@ -406,23 +522,22 @@ const TestView = () => {
           </div>
         );
       case 'essay':
-        const initialValue = answer?.answerText 
-          ? JSON.parse(answer.answerText) 
-          : [{ type: 'paragraph', children: [{ text: '' }] }];
         return (
           <div className={`p-4 rounded-lg shadow ${answered ? 'bg-green-100' : 'bg-white'}`}>
             <p className="text-gray-800 text-lg mb-2">{question.questionTitle}</p>
             <p className="text-gray-600 mb-2">{question.questionDescription}</p>
-            <Slate 
-              editor={editor} 
-              initialValue={initialValue} 
+            <RichTextEditor
+              content={answered ? answer?.answerText : unsavedAnswer}
               onChange={(value) => handleAnswerChange(index, value)}
+              placeholder="Write your essay here..."
+            />
+            <button
+              onClick={() => submitQuestionAnswer(index)}
+              className="mt-4 bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700"
+              disabled={!unsavedAnswer && !answered}
             >
-              <Editable
-                className="border rounded p-2 min-h-[200px] bg-gray-50 text-gray-800"
-                placeholder="Write your essay here..."
-              />
-            </Slate>
+              Submit Question
+            </button>
           </div>
         );
       case 'coding':
@@ -432,11 +547,18 @@ const TestView = () => {
             <p className="text-gray-800 text-lg mb-2">{question.questionTitle}</p>
             <p className="text-gray-600 mb-2">{question.questionDescription}</p>
             <textarea
-              value={answer?.answerText || ''}
+              value={answered ? answer?.answerText : unsavedAnswer}
               onChange={(e) => handleAnswerChange(index, e.target.value)}
               className="w-full h-40 p-2 border rounded bg-gray-50 text-gray-800"
               placeholder="Write your code here..."
             />
+            <button
+              onClick={() => submitQuestionAnswer(index)}
+              className="mt-4 bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700"
+              disabled={!unsavedAnswer && !answered}
+            >
+              Submit Question
+            </button>
           </div>
         );
       case 'assignment':
@@ -447,7 +569,7 @@ const TestView = () => {
             <p className="text-gray-600 mb-2">{question.questionDescription}</p>
             <input
               type="file"
-              onChange={(e) => handleAnswerChange(index, e.target.files[0])}
+              onChange={(e) => handleImmediateAnswerChange(index, e.target.files[0])}
               className="mb-2 text-gray-800"
             />
             {answer?.answerText instanceof File && (
@@ -460,12 +582,11 @@ const TestView = () => {
           <div className={`p-4 rounded-lg shadow ${answered ? 'bg-green-100' : 'bg-white'}`}>
             <p className="text-gray-800 text-lg mb-2">{question.questionTitle}</p>
             <p className="text-gray-600 mb-2">{question.questionDescription}</p>
-            <input
-              type="text"
-              value={answer?.answerText || ''}
-              onChange={(e) => handleAnswerChange(index, e.target.value)}
-              className="w-full p-2 border rounded bg-gray-50 text-gray-800"
+            <RichTextEditor
+              content={answer?.answerText || ''}
+              onChange={(value) => handleImmediateAnswerChange(index, value)}
               placeholder="Type your short answer here..."
+              limited={true}
             />
           </div>
         );

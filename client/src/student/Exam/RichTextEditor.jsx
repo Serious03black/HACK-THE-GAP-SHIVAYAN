@@ -1,83 +1,73 @@
-import React, { useState } from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css'; // Import Quill's default stylesheet
+import React, { useRef, useEffect } from 'react';
 
-const RichTextEditor = () => {
-  const [content, setContent] = useState('');
+const RichTextEditor = ({ content, onChange, placeholder, limited = false }) => {
+  const editorRef = useRef(null);
 
-  // Quill toolbar configuration
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, 4, 5, 6, false] }], // Header levels
-      [{ 'font': [] }], // Font family dropdown
-      [{ 'size': ['small', false, 'large', 'huge'] }], // Font size options
-      ['bold', 'italic', 'underline', 'strike'], // Text formatting
-      [{ 'align': [] }], // Alignment (left, center, right, justify)
-      [{ 'list': 'ordered' }, { 'list': 'bullet' }], // Lists
-      ['blockquote', 'code-block'], // Blockquote and code
-      [{ 'color': [] }, { 'background': [] }], // Text and background color
-      ['link', 'image'], // Link and image insertion
-      ['clean'], // Remove formatting
-    ],
+  useEffect(() => {
+    if (editorRef.current && content !== editorRef.current.innerHTML) {
+      editorRef.current.innerHTML = content || '';
+    }
+  }, [content]);
+
+  const handleInput = () => {
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
   };
 
-  // Formats supported by the editor
-  const formats = [
-    'header', 'font', 'size',
-    'bold', 'italic', 'underline', 'strike',
-    'align', 'list', 'bullet',
-    'blockquote', 'code-block',
-    'color', 'background',
-    'link', 'image',
-  ];
-
-  // Handle content change
-  const handleChange = (value) => {
-    setContent(value);
+  const execCommand = (command, value = null) => {
+    document.execCommand(command, false, value);
+    editorRef.current.focus();
+    handleInput();
   };
+
+  const toolbarButtons = limited
+    ? [
+        { label: 'B', command: 'bold', title: 'Bold' },
+        { label: 'I', command: 'italic', title: 'Italic' },
+        { label: 'U', command: 'underline', title: 'Underline' },
+      ]
+    : [
+        { label: 'B', command: 'bold', title: 'Bold' },
+        { label: 'I', command: 'italic', title: 'Italic' },
+        { label: 'U', command: 'underline', title: 'Underline' },
+        { label: 'H1', command: 'formatBlock', value: 'h1', title: 'Heading 1' },
+        { label: 'H2', command: 'formatBlock', value: 'h2', title: 'Heading 2' },
+        { label: 'UL', command: 'insertUnorderedList', title: 'Bullet List' },
+        { label: 'OL', command: 'insertOrderedList', title: 'Numbered List' },
+      ];
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-4xl bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">Rich Text Editor</h2>
-        
-        {/* Editor Container */}
-        <div className="border border-gray-300 rounded-md overflow-hidden">
-          <ReactQuill
-            value={content}
-            onChange={handleChange}
-            modules={modules}
-            formats={formats}
-            placeholder="Start typing here..."
-            className="h-64"
-          />
-        </div>
-
-        {/* Preview Section */}
-        <div className="mt-6">
-          <h3 className="text-lg font-medium text-gray-700 mb-2">Preview</h3>
-          <div
-            className="p-4 bg-gray-50 border border-gray-200 rounded-md text-gray-800"
-            dangerouslySetInnerHTML={{ __html: content }}
-          />
-        </div>
-
-        {/* Action Buttons */}
-        <div className="mt-6 flex space-x-4">
+    <div className="w-full bg-white rounded-md shadow border border-gray-300">
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-2 p-2 bg-gray-100 border-b border-gray-200">
+        {toolbarButtons.map((btn) => (
           <button
-            onClick={() => setContent('')}
-            className="px-4 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 transition-all"
+            key={btn.command + (btn.value || '')}
+            type="button"
+            onClick={() => execCommand(btn.command, btn.value)}
+            title={btn.title}
+            className="px-2 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            Clear
+            {btn.label}
           </button>
-          <button
-            onClick={() => alert('Content saved: ' + content)}
-            className="px-4 py-2 bg-teal-600 text-white font-semibold rounded-md hover:bg-teal-700 transition-all"
-          >
-            Save
-          </button>
-        </div>
+        ))}
       </div>
+      {/* Editable Area */}
+      <div
+        ref={editorRef}
+        contentEditable
+        onInput={handleInput}
+        className="min-h-[200px] p-4 text-gray-800 focus:outline-none"
+        dangerouslySetInnerHTML={{ __html: content || '' }}
+        placeholder={placeholder}
+        onFocus={(e) => {
+          if (!e.target.innerHTML) e.target.innerHTML = '';
+        }}
+        onBlur={(e) => {
+          if (!e.target.innerHTML) e.target.innerHTML = '';
+        }}
+      />
     </div>
   );
 };
