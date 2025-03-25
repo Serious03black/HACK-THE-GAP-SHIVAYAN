@@ -2,11 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../services/axiosInstance';
 import toast, { Toaster } from 'react-hot-toast';
-import { Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
-
-// Register Chart.js components
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const UniversityDashboard = () => {
   const navigate = useNavigate();
@@ -71,34 +66,6 @@ const UniversityDashboard = () => {
     { name: 'Students', path: '/university/students' },
     { name: 'Profile', path: '/university/profile' },
   ];
-
-  // Chart Data for Exam Stats
-  const chartData = {
-    labels: ['Total Exams', 'Students Assigned', 'Students Attended'],
-    datasets: [
-      {
-        label: 'Exam Statistics',
-        data: [examStats.totalExams, examStats.studentsAssigned, examStats.studentsAttended],
-        backgroundColor: ['#10B981', '#FBBF24', '#3B82F6'],
-        borderColor: ['#059669', '#F59E0B', '#2563EB'],
-        borderWidth: 1,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: { position: 'top' },
-      title: { display: true, text: 'Exam Statistics Overview', font: { size: 18, weight: 'bold' } },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        title: { display: true, text: 'Count' },
-      },
-    },
-  };
 
   return (
     <div className="flex bg-gradient-to-br from-gray-100 to-green-100 min-h-screen">
@@ -168,10 +135,9 @@ const UniversityDashboard = () => {
             <div className="bg-white rounded-xl shadow-2xl p-6 flex flex-col md:flex-row items-center justify-between">
               {university ? (
                 <>
-
                   <div className="flex items-center space-x-4">
                     <img
-                      src={ university?.universityLogo?.secure_url || 'https://res.cloudinary.com/dsh5742fk/image/upload/v1742877848/yo31mbg0b7ns1dcexndq.jpg'}
+                      src={university?.universityLogo?.secure_url || 'https://res.cloudinary.com/dsh5742fk/image/upload/v1742877848/yo31mbg0b7ns1dcexndq.jpg'}
                       alt="University Logo"
                       className="w-16 h-16 rounded-full object-cover border-2 border-green-500 shadow-sm"
                     />
@@ -194,12 +160,15 @@ const UniversityDashboard = () => {
               )}
             </div>
 
-            {/* Stats Section with Graph */}
+            {/* Stats Section */}
             <div className="bg-white rounded-xl shadow-2xl p-6">
               <h2 className="text-2xl md:text-3xl font-semibold text-green-700 mb-6">Exam Statistics</h2>
-              <div className="flex flex-col md:flex-row gap-6">
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full md:w-1/2">
+              {loading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-green-600"></div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="bg-green-50 rounded-lg p-4 text-center shadow-md hover:shadow-lg transition-all duration-200">
                     <h3 className="text-lg font-semibold text-green-700">Total Exams</h3>
                     <p className="text-2xl font-bold text-yellow-500">{examStats.totalExams}</p>
@@ -213,11 +182,7 @@ const UniversityDashboard = () => {
                     <p className="text-2xl font-bold text-yellow-500">{examStats.studentsAttended}</p>
                   </div>
                 </div>
-                {/* Bar Chart */}
-                <div className="w-full md:w-1/2">
-                  <Bar data={chartData} options={chartOptions} />
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Quick Actions */}
