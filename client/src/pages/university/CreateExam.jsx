@@ -1,10 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axiosInstance from "../../services/axiosInstance";
 import { extractErrorMessage } from './../../components/customError';
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from 'react-hot-toast';
 
 const CreateExam = () => {
+  const [currentDateTime, setCurrentDateTime] = useState({
+    date: '',
+    time: ''
+  });
   const [formData, setFormData] = useState({
     examName: "",
     examDate: "",
@@ -18,15 +22,92 @@ const CreateExam = () => {
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  useEffect(() => {
+    // Set current date and time when component mounts
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0];
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    setCurrentDateTime({
+      date: currentDate,
+      time: currentTime
+    });
+
+    // Set minimum date to tomorrow if current time is past 11:59 PM
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDate = tomorrow.toISOString().split('T')[0];
+    
+    // Set initial form date to tomorrow if current time is late
+    if (now.getHours() >= 23 && now.getMinutes() >= 59) {
+      setFormData(prev => ({
+        ...prev,
+        examDate: tomorrowDate
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        examDate: currentDate
+      }));
+    }
+  }, []);
+
   const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    // Special handling for date and time to ensure they're in the future
+    if (name === 'examDate') {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      
+      if (value < today) {
+        toast.error("Please select a date from today or later");
+        return;
+      }
+    }
+    
+    if (name === 'examTime') {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const selectedDate = formData.examDate || today;
+      
+      // If selected date is today, check time is in future
+      if (selectedDate === currentDateTime.date) {
+        const [selectedHours, selectedMinutes] = value.split(':').map(Number);
+        const [currentHours, currentMinutes] = currentDateTime.time.split(':').map(Number);
+        
+        if (selectedHours < currentHours || 
+            (selectedHours === currentHours && selectedMinutes <= currentMinutes)) {
+          toast.error("Please select a time in the future");
+          return;
+        }
+      }
+    }
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Final validation check before submission
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const [currentHours, currentMinutes] = currentDateTime.time.split(':').map(Number);
+    
+    if (formData.examDate === today) {
+      const [selectedHours, selectedMinutes] = formData.examTime.split(':').map(Number);
+      
+      if (selectedHours < currentHours || 
+          (selectedHours === currentHours && selectedMinutes <= currentMinutes)) {
+        toast.error("Please select a time in the future");
+        return;
+      }
+    }
+    
     setLoading(true);
     toast.loading('Creating exam...');
 
@@ -60,6 +141,7 @@ const CreateExam = () => {
     }
   };
 
+  // Rest of your component code remains the same...
   const sidebarItems = [
     { name: 'Dashboard', path: '/university/dashboard' },
     { name: 'Exams', path: '/university/exams', active: true },
@@ -134,8 +216,8 @@ const CreateExam = () => {
 
       {/* Scrollable Main Content (Starts Immediately Below Navbar) */}
       <div className="flex-1 ml-0 md:ml-64 pt-12 overflow-y-auto min-h-screen">
-        <div className="p-0"> {/* Removed padding to eliminate space */}
-          <div className="max-w-5xl mx-auto"> {/* Increased width from max-w-3xl to max-w-5xl */}
+        <div className="p-0">
+          <div className="max-w-5xl mx-auto">
             {/* Back Button */}
             <button
               onClick={handleBack}
@@ -186,6 +268,7 @@ const CreateExam = () => {
                       value={formData.examDate}
                       onChange={handleInputChange}
                       required
+                      min={currentDateTime.date}
                       className="w-full p-3 bg-gray-50 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-800 transition-all duration-200"
                     />
                   </div>
@@ -197,6 +280,7 @@ const CreateExam = () => {
                       value={formData.examTime}
                       onChange={handleInputChange}
                       required
+                      min={formData.examDate === currentDateTime.date ? currentDateTime.time : undefined}
                       className="w-full p-3 bg-gray-50 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-800 transition-all duration-200"
                     />
                   </div>
