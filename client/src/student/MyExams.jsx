@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 const MyExams = () => {
   const [exams, setExams] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
+  const navigate =  useNavigate();
 
   useEffect(() => {
     const fetchExams = async () => {
