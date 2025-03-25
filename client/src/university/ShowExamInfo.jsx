@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import axiosInstance from '../services/axiosInstance';
+import axiosInstance from './../services/axiosInstance';
 import toast, { Toaster } from 'react-hot-toast';
 
-const ShowExamInfo = () => {
+const SendExamInfo = () => {
   const { studentId } = useParams();
   const navigate = useNavigate();
   const [student, setStudent] = useState(null);
@@ -310,4 +310,4 @@ const ShowExamInfo = () => {
   );
 };
 
-export default ShowExamInfo;
+export default SendExamInfo;

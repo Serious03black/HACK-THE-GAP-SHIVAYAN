@@ -1,7 +1,7 @@
 
 
 import { Router } from "express";
-import { getExamDetails, getMyExams } from "../../controllers/student/student.exam.controller.js";
+import { attemptedExam, getExamDetails, getExamResult, getMyExams, submitExam, submitMCQAnswer } from "../../controllers/student/student.exam.controller.js";
 import { isStudentLogin } from "../../middlewares/student.middleware.js";
 import { upload } from './../../middlewares/multer.middleware.js';
 
@@ -24,23 +24,38 @@ studentExamRouter.route("/getExamDetails/:examId")
 );
 
 
-studentExamRouter.route("/submitQuestion/:examId")
+studentExamRouter.route("/submitMCQAnswer/:examId")
 .post(
     isStudentLogin,
     upload.none(),
-    getExamDetails
-);
-
-studentExamRouter.route("/submitAnser/:examId")
-.post(
-    isStudentLogin,
-    upload.none(),
-    getExamDetails
+    submitMCQAnswer
 );
 
 
 
+/***  Submit the Exams  */
 
+studentExamRouter.route("/submitExam/:examId")
+.post(
+    isStudentLogin,
+    upload.none(),
+    submitExam
+);
+
+
+studentExamRouter.route("/viewExamResult/:examId")
+.get(
+    isStudentLogin,
+    upload.none(),
+    getExamResult
+);
+
+studentExamRouter.route("/attemptedExam")
+.get(
+    isStudentLogin,
+    upload.none(),
+    attemptedExam
+);
 
 
 
