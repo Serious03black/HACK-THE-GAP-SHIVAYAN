@@ -572,14 +572,15 @@ const getAiDescription = asyncHandler(async (req, res) => {
             });
         }
 
+
         // Get the generative model
         const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
         // Define the prompt
-        let prompt = `Generate a 10 to 15 words description on ${inputText}`;
+        let prompt = `Create a description for the question ${inputText} in 10 to 15 words`;
 
-        if(type === "Coding") {
-            prompt = `Generate a 40 to 50 words description on ${inputText} with details`
+        if(type === "OA") {
+            prompt = `Create a description for a coding question  (${inputText}) in details in 40 to 50 words`
         }
 
         // Generate content
