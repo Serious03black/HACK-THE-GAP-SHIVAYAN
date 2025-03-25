@@ -30,7 +30,6 @@ const UniversityDashboard = () => {
       toast.loading('Fetching university data...');
       const response = await axiosInstance.get('/university/auth/getUniversityDetails');
       console.log("response.data", response?.data?.data);
-
       setUniversity(response?.data?.data?.university);
       toast.dismiss();
       toast.success('University data loaded!');

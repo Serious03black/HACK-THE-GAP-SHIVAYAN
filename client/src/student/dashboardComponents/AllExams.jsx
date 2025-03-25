@@ -59,7 +59,7 @@ const AllExams = ({ sidebarOpen, setSidebarOpen }) => {
       
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 w-64 bg-green-800 text-white transform ${
+        className={`fixed inset-y-0 left-0 mt-10 w-64 bg-green-800 text-white transform ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-20`}
       >
@@ -79,12 +79,7 @@ const AllExams = ({ sidebarOpen, setSidebarOpen }) => {
               <span>{item}</span>
             </div>
           ))}
-          <div
-            onClick={handleLogout}
-            className="p-4 cursor-pointer hover:bg-green-700 transition-colors flex items-center space-x-2 absolute bottom-4 w-full"
-          >
-            <span>Logout</span>
-          </div>
+         
         </nav>
       </div>
 
@@ -99,8 +94,8 @@ const AllExams = ({ sidebarOpen, setSidebarOpen }) => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-6 mt-16 md:mt-0">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex-1 p-6 mt-10  md:mt-0">
+        <div className="max-w-4xl mx-auto mt-10 space-y-6">
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">All Exams</h2>
             <input
