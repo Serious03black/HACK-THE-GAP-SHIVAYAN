@@ -62,7 +62,7 @@ const StudentProfile = () => {
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen mt-10 bg-gray-100">
       <Toaster position="top-right" toastOptions={{ style: { background: '#333', color: '#fff' } }} />
 
       {/* Sidebar */}

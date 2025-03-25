@@ -93,7 +93,7 @@ const ExamHistory = ({ sidebarOpen, setSidebarOpen }) => {
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="mt-10 flex min-h-screen bg-gray-100">
       <Toaster position="top-right" toastOptions={{ style: { background: '#333', color: '#fff' } }} />
 
       {/* Sidebar */}
