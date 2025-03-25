@@ -9,6 +9,32 @@ const RichTextEditor = ({ content, onChange, placeholder, limited = false }) => 
     }
   }, [content]);
 
+  // Quill toolbar configuration
+  const modules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, 4, 5, 6, false] }], // Header levels
+      [{ 'font': [] }], // Font family dropdown
+      [{ 'size': ['small', false, 'large', 'huge'] }], // Font size options
+      ['bold', 'italic', 'underline', 'strike'], // Text formatting
+      [{ 'align': [] }], // Alignment (left, center, right, justify)
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }], // Lists
+      ['blockquote', 'code-block'], // Blockquote and code
+      [{ 'color': [] }, { 'background': [] }], // Text and background color
+      ['link', 'image'], // Link and image insertion
+      ['clean'], // Remove formatting
+    ],
+  };
+  // Formats supported by the editor
+  const formats = [
+    'header', 'font', 'size',
+    'bold', 'italic', 'underline', 'strike',
+    'align', 'list', 'bullet',
+    'blockquote', 'code-block',
+    'color', 'background',
+    'link', 'image',
+  ];
+
+
   const handleInput = () => {
     if (editorRef.current) {
       onChange(editorRef.current.innerHTML);
