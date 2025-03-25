@@ -40,12 +40,6 @@ const StudentDashboard = ({ sidebarOpen, setSidebarOpen }) => {
               <span>{item}</span>
             </div>
           ))}
-          <div
-            onClick={handleLogout}
-            className="p-4 cursor-pointer hover:bg-green-700 transition-colors flex items-center space-x-2 absolute bottom-4 w-full"
-          >
-            <span>Logout</span>
-          </div>
         </nav>
       </div>
 
@@ -64,12 +58,6 @@ const StudentDashboard = ({ sidebarOpen, setSidebarOpen }) => {
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="bg-white rounded-lg shadow-lg p-6 flex justify-between items-center">
             <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-            <button
-              onClick={() => navigate('/student/profile')}
-              className="bg-white hover:bg-gray-100 text-gray-800 font-semibold py-2 px-4 border border-gray-300 rounded-md transition-all"
-            >
-              Profile
-            </button>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">Performance Overview</h2>
