@@ -47,6 +47,10 @@ const ShowAllStudents = () => {
     navigate('/university/dashboard');
   };
 
+  const handleExamInfo = (studentId) => {
+    navigate(`/university/students/${studentId}/exam-info`);
+  };
+
   const sidebarItems = [
     { name: 'Dashboard', path: '/university/dashboard' },
     { name: 'Exams', path: '/university/exams' },
@@ -54,17 +58,15 @@ const ShowAllStudents = () => {
     { name: 'Profile', path: '/university/profile' },
   ];
 
-  // Filter students based on search term and registration date
   const filteredStudents = students.filter((student) => {
     const matchesSearch = 
       student.studentEmail.toLowerCase().includes(searchTerm.toLowerCase()) || 
       student.studentPhone.includes(searchTerm);
-    const registrationDate = new Date(student.createdAt).toISOString().split('T')[0]; // Format to YYYY-MM-DD
+    const registrationDate = new Date(student.createdAt).toISOString().split('T')[0];
     const matchesDate = filterDate ? registrationDate === filterDate : true;
     return matchesSearch && matchesDate;
   });
 
-  // Format date for display
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString('en-US', {
       year: 'numeric',
@@ -80,17 +82,13 @@ const ShowAllStudents = () => {
       <Toaster 
         position="top-right"
         toastOptions={{
-          style: {
-            background: '#10B981',
-            color: '#fff',
-            borderRadius: '8px',
-          },
+          style: { background: '#10B981', color: '#fff', borderRadius: '8px' },
           success: { style: { background: '#10B981' } },
           error: { style: { background: '#EF4444' } },
         }}
       />
 
-      {/* Fixed Sidebar (Full Height, No Gap) */}
+      {/* Fixed Sidebar */}
       <div
         className={`fixed top-0 bottom-0 left-0 w-64 bg-gradient-to-b from-green-600 to-green-700 text-white transition-transform duration-300 ease-in-out z-20 shadow-lg ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
@@ -104,17 +102,12 @@ const ShowAllStudents = () => {
             <div
               key={item.name}
               onClick={() => navigate(item.path)}
-              className={`p-4 cursor-pointer ${
-                item.active ? 'bg-yellow-500 text-green-900' : 'hover:bg-green-500'
-              } transition-all duration-200`}
+              className={`p-4 cursor-pointer ${item.active ? 'bg-yellow-500 text-green-900' : 'hover:bg-green-500'} transition-all duration-200`}
             >
               {item.name}
             </div>
           ))}
-          <div
-            onClick={handleLogout}
-            className="p-4 cursor-pointer hover:bg-green-500 transition-all duration-200"
-          >
+          <div onClick={handleLogout} className="p-4 cursor-pointer hover:bg-green-500 transition-all duration-200">
             Logout
           </div>
         </nav>
@@ -130,40 +123,26 @@ const ShowAllStudents = () => {
         </button>
       </div>
 
-      {/* Scrollable Main Content */}
+      {/* Main Content */}
       <div className="flex-1 ml-0 md:ml-64 pt-16 overflow-y-auto min-h-screen">
         <div className="p-6 md:p-8">
           <div className="max-w-6xl mx-auto space-y-8">
-            {/* Back Button */}
             <button
               onClick={handleBack}
               className="mb-6 flex items-center text-green-700 hover:text-green-800 transition-all duration-200"
             >
-              <svg
-                className="w-6 h-6 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
+              <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
               Back to Dashboard
             </button>
 
-            {/* Header */}
             <h1 className="text-4xl md:text-5xl font-extrabold text-center mb-8 text-green-700 tracking-tight">
               All Students
             </h1>
 
-            {/* Search and Filter Section */}
             <div className="bg-white rounded-xl shadow-2xl p-6">
               <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                {/* Search Input */}
                 <div className="relative w-full sm:w-1/2">
                   <input
                     type="text"
@@ -172,22 +151,10 @@ const ShowAllStudents = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full p-3 bg-gray-50 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 placeholder-gray-400 text-gray-800 transition-all duration-200 pl-10"
                   />
-                  <svg
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-
-                {/* Date Filter */}
                 <div className="w-full sm:w-1/3">
                   <label className="block mb-1 font-medium text-green-700">Filter by Registration Date</label>
                   <input
@@ -200,7 +167,6 @@ const ShowAllStudents = () => {
               </div>
             </div>
 
-            {/* Students List */}
             <div className="bg-white rounded-xl shadow-2xl overflow-hidden relative">
               {loading ? (
                 <p className="p-6 text-center text-gray-600">Loading students...</p>
@@ -214,6 +180,7 @@ const ShowAllStudents = () => {
                         <th className="p-4 text-left font-semibold">Phone</th>
                         <th className="p-4 text-left font-semibold">Registration Date</th>
                         <th className="p-4 text-left font-semibold">Last Updated</th>
+                        <th className="p-4 text-left font-semibold">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -229,6 +196,14 @@ const ShowAllStudents = () => {
                           <td className="p-4">{student.studentPhone}</td>
                           <td className="p-4">{formatDate(student.createdAt)}</td>
                           <td className="p-4">{formatDate(student.updatedAt)}</td>
+                          <td className="p-4">
+                            <button
+                              onClick={() => handleExamInfo(student._id)}
+                              className="cursor-pointer bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition-all duration-200"
+                            >
+                              Exam Info
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -238,7 +213,6 @@ const ShowAllStudents = () => {
                 <p className="p-6 text-center text-gray-600">No students found.</p>
               )}
 
-              {/* Hover Popup */}
               {hoveredStudent && (
                 <div className="absolute z-30 bg-white rounded-lg shadow-xl p-4 border border-green-200 w-80 transform -translate-y-1/2 top-1/2 left-1/2 -translate-x-1/2">
                   <div className="flex items-center space-x-4">
@@ -253,24 +227,15 @@ const ShowAllStudents = () => {
                     </div>
                   </div>
                   <div className="mt-3 space-y-1">
-                    <p className="text-sm text-gray-700">
-                      <span className="font-medium text-green-700">Phone:</span> {hoveredStudent.studentPhone}
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-medium text-green-700">Registered:</span> {formatDate(hoveredStudent.createdAt)}
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-medium text-green-700">Last Updated:</span> {formatDate(hoveredStudent.updatedAt)}
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-medium text-green-700">ID:</span> {hoveredStudent._id}
-                    </p>
+                    <p className="text-sm text-gray-700"><span className="font-medium text-green-700">Phone:</span> {hoveredStudent.studentPhone}</p>
+                    <p className="text-sm text-gray-700"><span className="font-medium text-green-700">Registered:</span> {formatDate(hoveredStudent.createdAt)}</p>
+                    <p className="text-sm text-gray-700"><span className="font-medium text-green-700">Last Updated:</span> {formatDate(hoveredStudent.updatedAt)}</p>
+                    <p className="text-sm text-gray-700"><span className="font-medium text-green-700">ID:</span> {hoveredStudent._id}</p>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Summary */}
             <div className="text-green-700 text-sm">
               Total Students: <span className="font-semibold">{filteredStudents.length}</span>
             </div>

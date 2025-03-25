@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addQuestions, assignExam, createExam, getAllExams, getAllStudents, getExanDashboard, getOldQuestions, getUniversityDashboard, removeQuestion, getAiDescription } from "../../controllers/university/university.exam.controller.js";
+import { addQuestions, assignExam, createExam, getAllExams, getAllStudents, getExanDashboard, getOldQuestions, getUniversityDashboard, removeQuestion, getAiDescription, getStudent , getStudentExamDetails } from "../../controllers/university/university.exam.controller.js";
 import { upload } from "../../middlewares/multer.middleware.js";
 import { isUniversityLogin } from "../../middlewares/university.middleware.js";
 
@@ -77,6 +77,21 @@ examRouter.route("/generate-description")
 .post(
     isUniversityLogin,
     getAiDescription
+)
+
+
+// get a student by id
+examRouter.route("/getStudent/:studentId")
+.get(
+    isUniversityLogin,
+    getStudent
+)
+
+
+examRouter.route("/student/:studentId/exams")
+.get(
+    isUniversityLogin,
+    getStudentExamDetails
 )
 
 export default examRouter;

@@ -13,6 +13,7 @@ import UniversityDashboard from './../../university/UniversityDashboard';
 import UniversityProtection from './../../layouts/UniversityProtection';
 import ShowAllStudents from './../../university/ShowAllStudents'; 
 import UniversityProfile from '../../pages/university/UniversityProfile';
+import SendExamInfo from './../../university/SendExamInfo';   // // This Component is to view the info about the exams that the student has taken
 
 
 function UniversityRouter() {
@@ -42,6 +43,7 @@ function UniversityRouter() {
 
             <Route path="/dashboard" element={<UniversityDashboard />} />
             <Route path="/students" element={<ShowAllStudents />} />
+            <Route path="/students/:studentId/exam-info" element={<SendExamInfo />} />
             <Route path="/profile" element={<UniversityProfile />} />
 
 

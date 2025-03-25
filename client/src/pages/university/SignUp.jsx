@@ -80,7 +80,7 @@ const Signup = () => {
   };
 
   return (
-    <div className="mt-12 min-h-screen bg-gradient-to-br from-green-50 via-yellow-50 to-white flex items-center justify-center py-6 px-4 sm:px-6 lg:px-8">
+    <div className="mt-1 min-h-screen bg-gradient-to-br from-green-50 via-yellow-50 to-white flex items-center justify-center py-6 px-4 sm:px-6 lg:px-8">
       <div className="bg-white w-full max-w-lg p-8 rounded-2xl shadow-xl border border-green-100 transform transition-all hover:scale-[1.02]">
         {/* Header */}
         <h2 className="text-4xl font-extrabold text-green-600 text-center mb-2">

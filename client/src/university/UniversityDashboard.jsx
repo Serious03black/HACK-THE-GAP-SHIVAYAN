@@ -28,8 +28,10 @@ const UniversityDashboard = () => {
     try {
       setLoading(true);
       toast.loading('Fetching university data...');
-      const response = await axiosInstance.get('/university/profile');
-      setUniversity(response.data);
+      const response = await axiosInstance.get('/university/auth/getUniversityDetails');
+      console.log("response.data", response?.data?.data);
+
+      setUniversity(response?.data?.data?.university);
       toast.dismiss();
       toast.success('University data loaded!');
     } catch (error) {
@@ -42,20 +44,20 @@ const UniversityDashboard = () => {
   };
 
   const fetchExamStats = async () => {
-    try {
-      setLoading(true);
-      toast.loading('Fetching exam statistics...');
-      const response = await axiosInstance.get('/university/exam/stats');
-      setExamStats(response.data);
-      toast.dismiss();
-      toast.success('Exam stats loaded!');
-    } catch (error) {
-      console.error('Error fetching exam stats:', error);
-      toast.dismiss();
-      toast.error('Failed to load exam stats');
-    } finally {
-      setLoading(false);
-    }
+    // try {
+    //   setLoading(true);
+    //   toast.loading('Fetching exam statistics...');
+    //   const response = await axiosInstance.get('/university/exam/stats');
+    //   setExamStats(response.data);
+    //   toast.dismiss();
+    //   toast.success('Exam stats loaded!');
+    // } catch (error) {
+    //   console.error('Error fetching exam stats:', error);
+    //   toast.dismiss();
+    //   toast.error('Failed to load exam stats');
+    // } finally {
+    //   setLoading(false);
+    // }
   };
 
   const handleLogout = () => {
@@ -167,14 +169,15 @@ const UniversityDashboard = () => {
             <div className="bg-white rounded-xl shadow-2xl p-6 flex flex-col md:flex-row items-center justify-between">
               {university ? (
                 <>
+
                   <div className="flex items-center space-x-4">
                     <img
-                      src={university.universityLogo?.secure_url || 'https://via.placeholder.com/64'}
+                      src={ university?.universityLogo?.secure_url || 'https://res.cloudinary.com/dsh5742fk/image/upload/v1742877848/yo31mbg0b7ns1dcexndq.jpg'}
                       alt="University Logo"
                       className="w-16 h-16 rounded-full object-cover border-2 border-green-500 shadow-sm"
                     />
                     <div>
-                      <h2 className="text-2xl md:text-3xl font-bold text-green-700">{university.universityName}</h2>
+                      <h2 className="text-2xl md:text-3xl font-bold text-green-700">{university?.universityName}</h2>
                       <p className="text-gray-600">{university.universityEmail}</p>
                     </div>
                   </div>
