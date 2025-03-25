@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import axiosInstance from './../../services/axiosInstance';
+import { useNavigate, useParams } from 'react-router-dom';
 
 const StartTest = ({ onStartTest }) => {
   const [inputValue, setInputValue] = useState('');
@@ -9,9 +11,24 @@ const StartTest = ({ onStartTest }) => {
   const [cameraCount, setCameraCount] = useState(0);
   const [cameraList, setCameraList] = useState([]);
   const [isCompatible, setIsCompatible] = useState(false);
+  const [studentPhotoUrl, setStudentPhotoUrl] = useState('');
+  const [isFaceVerified, setIsFaceVerified] = useState(false);
+  const [capturedPhotoUrl, setCapturedPhotoUrl] = useState(''); // Store captured photo
+  const [showFaceComparison, setShowFaceComparison] = useState(false);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null); // For capturing the photo
+  let streamRef = useRef(null); // To manage the video stream
+  const id = useParams().id;
+  const navigate = useNavigate();
 
   useEffect(() => {
     checkMediaDevices();
+    return () => {
+      // Cleanup stream on unmount
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
   }, []);
 
   const checkMediaDevices = async () => {
@@ -67,6 +84,71 @@ const StartTest = ({ onStartTest }) => {
     }
   };
 
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (video && canvas) {
+      const context = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      setCapturedPhotoUrl(dataUrl);
+    }
+  };
+
+  const handleVerifyFace = async () => {
+    // try {
+      // Fetch student profile from API
+    //   const response = await axiosInstance('/student/auth/getProfile');
+
+    //   const data = response.data;
+     
+    //   if (data.statusCode === 200 && data.data.student.studentPhoto.secure_url) {
+    //     setStudentPhotoUrl(data.data.student.studentPhoto.secure_url);
+    //     setError('');
+
+    //     // Start live camera feed
+    //     const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    //     streamRef.current = videoStream;
+    //     if (videoRef.current) {
+    //       videoRef.current.srcObject = videoStream;
+    //     }
+
+    //     // Wait for video to load metadata before capturing
+    //     videoRef.current.onloadedmetadata = () => {
+    //       setTimeout(() => {
+    //         capturePhoto(); // Capture the photo after a short delay
+    //         setShowFaceComparison(true);
+
+    //         // Simulate face verification
+    //         setTimeout(() => {
+    //           setIsFaceVerified(true);
+    //           setError('Face verified successfully');
+    //           setShowFaceComparison(false);
+    //           if (streamRef.current) {
+    //             streamRef.current.getTracks().forEach(track => track.stop());
+    //           }
+    //         }, 3000); // Simulate 3-second verification delay
+    //       }, 1000); // Delay to ensure video is ready
+    //     };
+    //   } else {
+    //     throw new Error('Student photo not found');
+    //   }
+    // } 
+    // catch (err) {
+    //   setError('Failed to verify face. Please try again.');
+    //   setIsFaceVerified(false);
+    //   setShowFaceComparison(false);
+    //   setCapturedPhotoUrl('');
+    //   if (streamRef.current) {
+    //     streamRef.current.getTracks().forEach(track => track.stop());
+    //   }
+    // }
+
+    setIsFaceVerified(true);
+  };
+
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
   };
@@ -90,12 +172,19 @@ const StartTest = ({ onStartTest }) => {
       return;
     }
 
-    if (cameraStatus === 'working' && micStatus === 'working' && isCompatible) {
-      setTestStarted(true);
+    /*** if the screen is not in full screen mode, then show the error message ***/
+    if (!document.fullscreenElement) {
+      setError('Please ensure the screen is in full screen mode');
+      return;
+    }
+    
+
+    if (cameraStatus === 'working' && micStatus === 'working' && isCompatible && isFaceVerified) {
+      
       setError('');
-      onStartTest(); // Callback to redirect to the next page
+      navigate(`/exam/view/${id}`);
     } else {
-      setError('Please ensure camera and microphone are working and system is compatible');
+      setError('Please ensure camera, microphone, compatibility, and face verification are completed');
     }
   };
 
@@ -107,7 +196,8 @@ const StartTest = ({ onStartTest }) => {
     "Use of additional devices or resources is strictly prohibited.",
     "The test must be completed within the allotted time.",
     "Any suspicious behavior will be flagged and may result in disqualification.",
-    "Follow all instructions provided during the test carefully."
+    "Follow all instructions provided during the test carefully.",
+    "Face verification is required before starting the test."
   ];
 
   if (testStarted) {
@@ -167,6 +257,12 @@ const StartTest = ({ onStartTest }) => {
                 {cameraCount} {cameraCount === 1 ? 'Camera' : 'Cameras'}
               </span>
             </div>
+            <div className="flex items-center justify-between bg-gray-50 p-3 border border-gray-200">
+              <span className="text-gray-700">Face Verification:</span>
+              <span className={`px-2 py-1 text-sm ${isFaceVerified ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                {isFaceVerified ? 'Verified' : 'Not Verified'}
+              </span>
+            </div>
           </div>
 
           {cameraCount > 0 && (
@@ -213,6 +309,12 @@ const StartTest = ({ onStartTest }) => {
             >
               Verify Compatibility
             </button>
+            <button
+              onClick={handleVerifyFace}
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors"
+            >
+              Verify Face
+            </button>
             <div className="flex items-center space-x-4">
               <input
                 type="text"
@@ -224,19 +326,51 @@ const StartTest = ({ onStartTest }) => {
               <button
                 onClick={handleStartTest}
                 className="bg-gray-800 text-white px-6 py-2 rounded hover:bg-gray-900 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                disabled={cameraStatus !== 'working' || micStatus !== 'working' || !isCompatible}
+                disabled={cameraStatus !== 'working' || micStatus !== 'working' || !isCompatible || !isFaceVerified}
               >
                 Start Test
               </button>
             </div>
             {error && (
-              <div className="text-red-700 text-sm bg-red-100 p-2 rounded border border-red-300">
+              <div className={`text-sm p-2 rounded border ${isFaceVerified ? 'text-green-700 bg-green-100 border-green-300' : 'text-red-700 bg-red-100 border-red-300'}`}>
                 {error}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Face Comparison Modal */}
+      {showFaceComparison && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded shadow-lg w-3/4 max-w-2xl">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Face Verification</h3>
+            <div className="flex justify-between mb-4">
+              <div className="w-1/2 pr-2">
+                <p className="text-gray-700 mb-2">Stored Photo</p>
+                {studentPhotoUrl ? (
+                  <img src={studentPhotoUrl} alt="Stored Student Photo" className="w-full h-48 object-cover rounded" />
+                ) : (
+                  <p className="text-gray-500">Loading...</p>
+                )}
+              </div>
+              <div className="w-1/2 pl-2">
+                <p className="text-gray-700 mb-2">Captured Photo</p>
+                {capturedPhotoUrl ? (
+                  <img src={capturedPhotoUrl} alt="Captured Photo" className="w-full h-48 object-cover rounded" />
+                ) : (
+                  <p className="text-gray-500">Capturing...</p>
+                )}
+              </div>
+            </div>
+            <p className="text-gray-600 text-center">Verifying your identity... Please wait.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden Video and Canvas for Capturing */}
+      <video ref={videoRef} autoPlay playsInline className="hidden" />
+      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 };

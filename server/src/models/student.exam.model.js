@@ -18,7 +18,6 @@ const studentExamSchema = new Schema({
     answers: {
         type: Schema.Types.ObjectId,
         ref: "StudentAnswers",
-        required: true,
     },
 
     examStatus: {
@@ -33,7 +32,7 @@ const studentExamSchema = new Schema({
 
     examMarks: {
         type: Number,
-        required: true,
+        // required: true,
     },
 
     examDurationByStudent: {
@@ -45,10 +44,6 @@ const studentExamSchema = new Schema({
         type: Number,
         default: 0,
     },
-
-    
-
-
 
     
 })
