@@ -4,9 +4,9 @@ import axiosInstance from '../services/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 
 const MyExams = () => {
-  const [exams, setExams] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const navigate =  useNavigate();
+const [exams, setExams] = useState([]);
+const [isLoading, setIsLoading] = useState(true);
+const navigate =  useNavigate();
 
   useEffect(() => {
     const fetchExams = async () => {
@@ -24,8 +24,7 @@ const MyExams = () => {
 
   return (  
     <div className="bg-white shadow-lg  rounded-xl p-8 ">
-    <div className="bg-white shadow-lg mt-100 rounded-xl p-8 ">
-      <h2 className="text-3xl font-bold text-gray-800 mb-4">My Exams</h2>
+        <h2 className="text-3xl font-bold text-gray-800 mb-4">My Exams</h2>
       {isLoading ? (
         <p>Loading...</p>
       ) : (
