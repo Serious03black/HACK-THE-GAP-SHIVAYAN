@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import gsap from "gsap";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -29,7 +29,6 @@ const AddQuestions = () => {
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // GSAP animations and fetch old questions
   useEffect(() => {
     const icons = document.querySelectorAll(".floating-icon");
     icons.forEach((icon) => {
@@ -45,9 +44,7 @@ const AddQuestions = () => {
 
     const getOldQuestions = async () => {
       try {
-        const response = await axiosInstance.get(`/university/exam/getOldQuestions/${examId}`, {
-          headers: { "Content-Type": "application/json" },
-        });
+        const response = await axiosInstance.get(`/university/exam/getOldQuestions/${examId}`);
         const allQuestions = response?.data?.data?.questions;
         const formattedQuestions = allQuestions.map((q) => ({
           title: q.questionTitle,
@@ -113,15 +110,62 @@ const AddQuestions = () => {
     }
   };
 
+  const validateQuestion = () => {
+    // Basic validation for required fields
+    if (!newQuestion.title.trim()) {
+      toast.error("Question title is required");
+      return false;
+    }
+
+    if (!newQuestion.marks || isNaN(newQuestion.marks) || newQuestion.marks <= 0) {
+      toast.error("Please enter valid marks (greater than 0)");
+      return false;
+    }
+
+    if (!newQuestion.time || isNaN(newQuestion.time) || newQuestion.time <= 0) {
+      toast.error("Please enter valid time (greater than 0 minutes)");
+      return false;
+    }
+
+    // MCQ specific validations
+    if (newQuestion.type === "MCQ") {
+      // Check if at least one option is marked as correct
+      const hasCorrectOption = newQuestion.options.some(option => option.isCorrect);
+      if (!hasCorrectOption) {
+        toast.error("Please mark at least one option as correct");
+        return false;
+      }
+
+      // Check if all options have text
+      const hasEmptyOptions = newQuestion.options.some(option => !option.text.trim());
+      if (hasEmptyOptions) {
+        toast.error("Please fill in all option fields");
+        return false;
+      }
+
+      // Check for duplicate options
+      const optionTexts = newQuestion.options.map(option => option.text.trim().toLowerCase());
+      const uniqueOptions = new Set(optionTexts);
+      if (uniqueOptions.size !== optionTexts.length) {
+        toast.error("Options must be unique");
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleAddQuestion = async (e) => {
     e.preventDefault();
-    if (!newQuestion.title || !newQuestion.marks || !newQuestion.time) {
-      toast.error("Please fill in all required fields.");
+    
+    if (!validateQuestion()) {
       return;
     }
+
     try {
       const options = [];
       let rightAns = undefined;
+      
       if (newQuestion.options) {
         for (let i = 0; i < newQuestion?.options?.length; i++) {
           options.push(newQuestion.options[i].text);
@@ -130,6 +174,7 @@ const AddQuestions = () => {
           }
         }
       }
+
       const questionData = {
         exam: examId,
         questionTitle: newQuestion.title,
@@ -140,12 +185,12 @@ const AddQuestions = () => {
         questionMarks: newQuestion.marks,
         questionLevel: newQuestion.level,
       };
-      const response = await axiosInstance.post("/university/exam/addQuestions", questionData, {
-        headers: { "Content-Type": "application/json" },
-      });
-      if (response?.data?.data?.statusCode == 201 || response?.data?.status == 201 || response?.status == 200) {
+
+      const response = await axiosInstance.post("/university/exam/addQuestions", questionData);
+      
+      if (response?.data?.statusCode === 201 || response?.status === 200) {
         toast.success("Question added successfully!");
-        setQuestions((prev) => [...prev, newQuestion]);
+        setQuestions((prev) => [...prev, { ...newQuestion, _id: response.data.data._id }]);
         resetQuestionForm();
       } else {
         toast.error(extractErrorMessage(response?.data?.message) || "Failed to add question");
@@ -171,12 +216,10 @@ const AddQuestions = () => {
   };
 
   const handleRemoveQuestion = async (_id, e) => {
-    if (e) e.preventDefault();
+    e.preventDefault();
     if (window.confirm("Are you sure you want to delete this question?")) {
       try {
-        const response = await axiosInstance.delete(`/university/exam/removeQuestion/${_id}`, {
-          headers: { "Content-Type": "application/json" },
-        });
+        const response = await axiosInstance.delete(`/university/exam/removeQuestion/${_id}`);
         if (response?.data?.statusCode === 200) {
           toast.success("Question removed successfully!");
           setQuestions((prev) => prev.filter((question) => question._id !== _id));
@@ -231,14 +274,12 @@ const AddQuestions = () => {
 
   return (
     <div className="flex bg-gradient-to-br from-gray-100 to-green-100 min-h-screen">
-      <ToastContainer />
+      <ToastContainer position="top-right" autoClose={5000} />
 
-      {/* Fixed Sidebar (Full Height, No Gap) */}
-      <div
-        className={`fixed top-0 bottom-0 left-0 w-64 bg-gradient-to-b from-green-600 to-green-700 text-white transition-transform duration-300 ease-in-out z-20 shadow-lg ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
-      >
+      {/* Sidebar */}
+      <div className={`fixed top-0 bottom-0 left-0 w-64 bg-gradient-to-b from-green-600 to-green-700 text-white transition-transform duration-300 ease-in-out z-20 shadow-lg ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+      }`}>
         <div className="pt-16 p-6 border-b border-green-500">
           <h2 className="text-2xl font-bold">Admin Panel</h2>
         </div>
@@ -263,7 +304,7 @@ const AddQuestions = () => {
         </nav>
       </div>
 
-      {/* Mobile Sidebar Toggle (Assumes Navbar is Above) */}
+      {/* Mobile Sidebar Toggle */}
       <div className="md:hidden fixed top-0 left-0 z-30 w-full bg-gradient-to-r from-green-600 to-green-700 text-white p-4 flex justify-between items-center">
         <h2 className="text-xl font-bold">Admin Panel</h2>
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-white">
@@ -273,33 +314,22 @@ const AddQuestions = () => {
         </button>
       </div>
 
-      {/* Scrollable Main Content (Starts Below Navbar) */}
+      {/* Main Content */}
       <div className="flex-1 ml-0 md:ml-64 pt-16 overflow-y-auto min-h-screen">
         <div className="p-4 md:p-8">
           <div className="max-w-5xl mx-auto space-y-8">
-            {/* Back Button */}
             <button
               onClick={handleBack}
               className="mb-6 flex items-center text-green-700 hover:text-green-800 transition-all duration-200"
             >
-              <svg
-                className="w-6 h-6 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
+              <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
               Back to Exams
             </button>
 
             <h1 className="text-4xl md:text-5xl font-extrabold text-center mb-8 text-green-700 tracking-tight">
-              Add Questions for <span className="text-yellow-500">{'Exam Name'}</span>
+              Add Questions for <span className="text-yellow-500">Exam</span>
             </h1>
 
             <form className="space-y-8">
@@ -324,7 +354,6 @@ const AddQuestions = () => {
                               <th className="p-3 text-left font-semibold">Type</th>
                               <th className="p-3 text-left font-semibold">Marks</th>
                               <th className="p-3 text-left font-semibold">Level</th>
-                              <th className="p-3 text-left font-semibold">Time (min)</th>
                               <th className="p-3 text-left font-semibold">Actions</th>
                             </tr>
                           </thead>
@@ -335,7 +364,6 @@ const AddQuestions = () => {
                                 <td className="p-3 border-b border-gray-200">{q.type}</td>
                                 <td className="p-3 border-b border-gray-200">{q.marks}</td>
                                 <td className="p-3 border-b border-gray-200">{q.level}</td>
-                                <td className="p-3 border-b border-gray-200">{q.time}</td>
                                 <td className="p-3 border-b border-gray-200">
                                   <button
                                     onClick={(e) => handleRemoveQuestion(q._id, e)}
@@ -368,6 +396,7 @@ const AddQuestions = () => {
                 </button>
                 {expandedSections.addQuestion && (
                   <div className="p-4 md:p-6 space-y-6">
+                    {/* Question Type */}
                     <div>
                       <label className="block mb-2 font-medium text-green-700">Question Type</label>
                       <select
@@ -383,8 +412,9 @@ const AddQuestions = () => {
                       </select>
                     </div>
 
+                    {/* Question Title */}
                     <div>
-                      <label className="block mb-2 font-medium text-green-700">Question Title</label>
+                      <label className="block mb-2 font-medium text-green-700">Question Title*</label>
                       <input
                         type="text"
                         name="title"
@@ -395,6 +425,7 @@ const AddQuestions = () => {
                       />
                     </div>
 
+                    {/* Question Description */}
                     <div>
                       <label className="block mb-2 font-medium text-green-700">Description</label>
                       <textarea
@@ -426,9 +457,10 @@ const AddQuestions = () => {
                       )}
                     </div>
 
+                    {/* Marks, Level, Time */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
-                        <label className="block mb-2 font-medium text-green-700">Marks</label>
+                        <label className="block mb-2 font-medium text-green-700">Marks*</label>
                         <input
                           type="number"
                           name="marks"
@@ -453,7 +485,7 @@ const AddQuestions = () => {
                         </select>
                       </div>
                       <div>
-                        <label className="block mb-2 font-medium text-green-700">Time (minutes)</label>
+                        <label className="block mb-2 font-medium text-green-700">Time (minutes)*</label>
                         <input
                           type="number"
                           name="time"
@@ -466,9 +498,10 @@ const AddQuestions = () => {
                       </div>
                     </div>
 
+                    {/* MCQ Options */}
                     {newQuestion.type === "MCQ" && (
                       <div>
-                        <h3 className="text-lg font-semibold mb-3 text-green-700">Options</h3>
+                        <h3 className="text-lg font-semibold mb-3 text-green-700">Options*</h3>
                         {newQuestion.options.map((option, index) => (
                           <div key={index} className="flex items-center gap-3 mb-3">
                             <input
@@ -477,16 +510,30 @@ const AddQuestions = () => {
                               onChange={(e) => handleOptionChange(index, e.target.value)}
                               placeholder={`Option ${index + 1}`}
                               required
-                              className="flex-1 p-3 bg-gray-50 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-200"
+                              className={`flex-1 p-3 bg-gray-50 border ${
+                                option.isCorrect ? 'border-green-500' : 'border-green-300'
+                              } rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-200`}
                             />
-                            <input
-                              type="radio"
-                              name="correctOption"
-                              checked={option.isCorrect}
-                              onChange={() => setCorrectOption(index)}
-                              className="h-5 w-5 text-green-600"
-                            />
-                            <span className="text-sm text-green-700">Correct</span>
+                            <button
+                              type="button"
+                              onClick={() => setCorrectOption(index)}
+                              className={`flex items-center justify-center h-10 w-10 rounded-full ${
+                                option.isCorrect 
+                                  ? 'bg-green-500 text-white' 
+                                  : 'bg-gray-200 text-gray-700'
+                              } transition-colors duration-200`}
+                              title={option.isCorrect ? "Correct answer" : "Mark as correct"}
+                            >
+                              {option.isCorrect ? (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                              )}
+                            </button>
                             {newQuestion.options.length > 2 && (
                               <button
                                 type="button"
@@ -510,7 +557,8 @@ const AddQuestions = () => {
                       </div>
                     )}
 
-                    {newQuestion.type === "Coding" && (
+                    {/* Coding Language */}
+                    {newQuestion.type === "OA" && (
                       <div>
                         <label className="block mb-2 font-medium text-green-700">Coding Language</label>
                         <select
@@ -527,6 +575,7 @@ const AddQuestions = () => {
                       </div>
                     )}
 
+                    {/* Form Buttons */}
                     <div className="flex gap-4">
                       <button
                         type="button"
